@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>ОСО - Оцени свою одежду</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background: #0a0a0a;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        /* Градиентный фон */
+        .gradient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 300px;
+            background: linear-gradient(180deg, #7c3aed 0%, #2563eb 50%, #0a0a0a 100%);
+            z-index: 0;
+            opacity: 0.8;
+        }
+
+        /* Контейнер приложения */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+
+        /* Хедер */
+        .app-header {
+            padding: 20px 20px 30px;
+        }
+
+        /* Карточка загрузки */
+        .upload-card {
+            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            border-radius: 24px;
+            padding: 40px 24px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(124, 58, 237, 0.3);
+            transition: transform 0.2s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .upload-card:active {
+            transform: scale(0.98);
+        }
+
+        .upload-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Превью карточка */
+        .preview-card {
+            background: #1a1a1a;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .preview-image {
+            width: 100%;
+            aspect-ratio: 3/4;
+            object-fit: cover;
+        }
+
+        /* Карточки результатов */
+        .result-card {
+            background: #1a1a1a;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        /* Звёзды */
+        .rating-stars {
+            display: flex;
+            gap: 4px;
+        }
+
+        .star {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        }
+
+        .star.empty {
+            background: #2a2a2a;
+        }
+
+        /* Кнопки */
+        .btn-primary {
+            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            border: none;
+            border-radius: 16px;
+            padding: 18px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: #2a2a2a;
+            border: none;
+            border-radius: 16px;
+            padding: 18px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+            background: #333;
+        }
+
+        /* Лоадер */
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #2a2a2a;
+            border-top: 4px solid #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Hint */
+        .hint {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 16px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+        .stagger-4 { animation-delay: 0.4s; }
+
+        /* Скрытие input */
+        #image-upload {
+            display: none;
+        }
+
+        /* Статус бар spacer */
+        .status-bar-spacer {
+            height: env(safe-area-inset-top);
+        }
+    </style>
+</head>
+<body>
+    <!-- Градиентный фон -->
+    <div class="gradient-bg"></div>
+
+    <!-- Основной контейнер -->
+    <div class="app-container">
+        <div class="status-bar-spacer"></div>
+
+        <!-- Хедер -->
+        <header class="app-header">
+            <h1 class="text-3xl font-bold mb-2">ОСО</h1>
+            <p class="text-white/60 text-sm">Оцени свою одежду</p>
+        </header>
+
+        <!-- Контент -->
+        <main class="px-5">
+            
+            <!-- Hint -->
+            <div id="hint-section" class="hint mb-6">
+                <div class="text-2xl">💡</div>
+                <div class="text-sm">Загрузи фото в полный рост для точного анализа</div>
+            </div>
+
+            <!-- Карточка загрузки -->
+            <div id="upload-section">
+                <label for="image-upload">
+                    <div class="upload-card">
+                        <div class="upload-icon">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-2">Загрузить фото</h3>
+                        <p class="text-white/80 text-sm">Нажми, чтобы выбрать</p>
+                    </div>
+                </label>
+                <input type="file" id="image-upload" accept="image/*">
+            </div>
+
+            <!-- Превью -->
+            <div id="preview-section" class="hidden mb-6">
+                <div class="preview-card">
+                    <img id="preview-image" class="preview-image" src="" alt="Превью" style="display: none;">
+                </div>
+            </div>
+
+            <!-- Лоадер -->
+            <div id="loader-section" class="hidden py-12 text-center" style="display: none;">
+                <div class="loader mb-4"></div>
+                <p class="text-white/60 text-sm">Анализирую твой стиль...</p>
+            </div>
+
+            <!-- Результаты -->
+            <div id="results-section" class="hidden space-y-4" style="display: none;">
+                <!-- Одежда -->
+                <div class="result-card fade-in">
+                    <div class="flex gap-4">
+                        <div class="result-icon">👔</div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold mb-2">Твоя одежда</h3>
+                            <p id="result-clothes" class="text-white/70 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Стиль -->
+                <div class="result-card fade-in stagger-1">
+                    <div class="flex gap-4">
+                        <div class="result-icon">✨</div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold mb-2">Твой стиль</h3>
+                            <p id="result-style" class="text-white/70 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Рейтинг -->
+                <div class="result-card fade-in stagger-2">
+                    <div class="flex gap-4">
+                        <div class="result-icon">⭐</div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold mb-3">Оценка образа</h3>
+                            <div class="rating-stars mb-2" id="stars"></div>
+                            <p id="rating-text" class="text-white/70 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Рекомендации -->
+                <div class="result-card fade-in stagger-3">
+                    <div class="flex gap-4">
+                        <div class="result-icon">💡</div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold mb-2">Советы стилиста</h3>
+                            <p id="result-suggestions" class="text-white/70 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Кнопка -->
+                <button id="btn-new-photo" class="btn-secondary fade-in stagger-4">
+                    Загрузить новое фото
+                </button>
+            </div>
+
+            <!-- Ошибка -->
+            <div id="error-section" class="hidden">
+                <div class="result-card text-center">
+                    <div class="text-4xl mb-3">😕</div>
+                    <p id="error-text" class="text-red-400 text-sm"></p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // DOM элементы
+        const imageUpload = document.getElementById('image-upload');
+        const hintSection = document.getElementById('hint-section');
+        const uploadSection = document.getElementById('upload-section');
+        const previewSection = document.getElementById('preview-section');
+        const previewImage = document.getElementById('preview-image');
+        const loaderSection = document.getElementById('loader-section');
+        const resultsSection = document.getElementById('results-section');
+        const errorSection = document.getElementById('error-section');
+        const errorText = document.getElementById('error-text');
+        const btnNewPhoto = document.getElementById('btn-new-photo');
+
+        // Результаты
+        const resultClothes = document.getElementById('result-clothes');
+        const resultStyle = document.getElementById('result-style');
+        const stars = document.getElementById('stars');
+        const ratingText = document.getElementById('rating-text');
+        const resultSuggestions = document.getElementById('result-suggestions');
+
+        // API
+        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
+        const API_KEY = "AIzaSyCkBnhr8KVNzJjuNQIaduk5nsEisFYtfo4";
+
+        const SYSTEM_PROMPT = `Ты — модный ИИ-стилист. Проанализируй фото и дай оценку образу на русском языке. Ответ строго по формату:
+
+Вы одеты в: [краткий список одежды]
+Ваш стиль: [название стиля]
+Сочетание одежды: [оценка от 7 до 10]
+Что можно добавить: [1-3 совета]`;
+
+        // Загрузка файла
+        imageUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showError('Пожалуйста, выбери изображение');
+                return;
+            }
+
+            resetUI();
+            showPreview(file);
+            await processImage(file);
+        });
+
+        // Новое фото
+        btnNewPhoto.addEventListener('click', () => {
+            resetToInitial();
+        });
+
+        // Превью
+        function showPreview(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewImage.style.display = 'block';
+                uploadSection.classList.add('hidden');
+                hintSection.classList.add('hidden');
+                previewSection.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Обработка
+        async function processImage(file) {
+            loaderSection.style.display = 'block';
+            loaderSection.classList.remove('hidden');
+
+            try {
+                const base64Data = await resizeAndConvert(file);
+                await analyzeImage(base64Data);
+            } catch (error) {
+                console.error(error);
+                showError('Не удалось проанализировать фото. Попробуй ещё раз');
+            } finally {
+                loaderSection.style.display = 'none';
+                loaderSection.classList.add('hidden');
+            }
+        }
+
+        // Сжатие
+        function resizeAndConvert(file, maxSize = 512, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > maxSize) {
+                                height *= maxSize / width;
+                                width = maxSize;
+                            }
+                        } else {
+                            if (height > maxSize) {
+                                width *= maxSize / height;
+                                height = maxSize;
+                            }
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+                    };
+                    img.onerror = reject;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Анализ
+        async function analyzeImage(base64Data) {
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: "Проанализируй одежду на этом фото." },
+                        {
+                            inlineData: {
+                                mimeType: "image/jpeg",
+                                data: base64Data
+                            }
+                        }
+                    ]
+                }],
+                systemInstruction: {
+                    parts: [{ text: SYSTEM_PROMPT }]
+                }
+            };
+
+            try {
+                const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('Ошибка API');
+
+                const result = await response.json();
+                const text = result.candidates[0].content.parts[0].text;
+                displayResults(text);
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // Отображение
+        function displayResults(text) {
+            const lines = text.split('\n').filter(l => l.trim());
+
+            lines.forEach(line => {
+                if (line.includes('Вы одеты в:')) {
+                    resultClothes.textContent = line.split(':').slice(1).join(':').trim();
+                }
+                if (line.includes('Ваш стиль:')) {
+                    resultStyle.textContent = line.split(':').slice(1).join(':').trim();
+                }
+                if (line.includes('Сочетание одежды:')) {
+                    const match = line.match(/(\d+)/);
+                    if (match) {
+                        const rating = parseInt(match[1]);
+                        displayStars(rating);
+                        ratingText.textContent = `${rating}/10`;
+                    }
+                }
+                if (line.includes('Что можно добавить:')) {
+                    resultSuggestions.textContent = line.split(':').slice(1).join(':').trim();
+                }
+            });
+
+            resultsSection.style.display = 'block';
+            resultsSection.classList.remove('hidden');
+        }
+
+        // Звёзды
+        function displayStars(rating) {
+            stars.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                const star = document.createElement('div');
+                star.className = i < rating ? 'star' : 'star empty';
+                stars.appendChild(star);
+            }
+        }
+
+        // Ошибка
+        function showError(message) {
+            errorText.textContent = message;
+            errorSection.classList.remove('hidden');
+        }
+
+        // Сброс UI
+        function resetUI() {
+            errorSection.classList.add('hidden');
+            errorSection.style.display = 'none';
+            resultsSection.classList.add('hidden');
+            resultsSection.style.display = 'none';
+        }
+
+        // Полный сброс
+        function resetToInitial() {
+            hintSection.classList.remove('hidden');
+            uploadSection.classList.remove('hidden');
+            previewSection.classList.add('hidden');
+            loaderSection.classList.add('hidden');
+            loaderSection.style.display = 'none';
+            resultsSection.classList.add('hidden');
+            resultsSection.style.display = 'none';
+            errorSection.classList.add('hidden');
+            errorSection.style.display = 'none';
+            imageUpload.value = '';
+        }
+    </script>
+</body>
+</html>
