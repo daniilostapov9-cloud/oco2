@@ -517,38 +517,65 @@
         function displayResults(text) {
             console.log('Полный ответ от API:', text); // Для отладки
             
-            const lines = text.split('\n').filter(l => l.trim());
-
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
+            // Разбиваем текст на строки
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            
+            // Ищем каждую секцию
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
                 
-                if (trimmedLine.includes('одеты в') || trimmedLine.includes('Одеты в')) {
-                    resultClothes.textContent = trimmedLine.split(':').slice(1).join(':').trim();
+                // Одежда
+                if ((line.toLowerCase().includes('одеты в') || line.toLowerCase().includes('одежда')) && !resultClothes.textContent) {
+                    const content = line.split(':').slice(1).join(':').trim();
+                    if (content) resultClothes.textContent = content;
+                    else if (lines[i + 1]) resultClothes.textContent = lines[i + 1];
                 }
-                if (trimmedLine.includes('стиль') && !trimmedLine.includes('стилист')) {
-                    resultStyle.textContent = trimmedLine.split(':').slice(1).join(':').trim();
+                
+                // Стиль
+                if (line.toLowerCase().includes('стиль') && !line.toLowerCase().includes('стилист') && !resultStyle.textContent) {
+                    const content = line.split(':').slice(1).join(':').trim();
+                    if (content) resultStyle.textContent = content;
+                    else if (lines[i + 1]) resultStyle.textContent = lines[i + 1];
                 }
-                if (trimmedLine.includes('Сочетание') || trimmedLine.includes('сочетание') || trimmedLine.includes('Оценка')) {
-                    const match = trimmedLine.match(/(\d+)/);
+                
+                // Оценка
+                if ((line.toLowerCase().includes('сочетание') || line.toLowerCase().includes('оценка')) && !ratingText.textContent) {
+                    const match = line.match(/(\d+)/);
                     if (match) {
                         const rating = parseInt(match[1]);
                         displayStars(rating);
                         ratingText.textContent = `${rating}/10`;
                     }
                 }
-                if (trimmedLine.includes('добавить') || trimmedLine.includes('Добавить') || trimmedLine.includes('Рекоменд') || trimmedLine.includes('рекоменд') || trimmedLine.includes('Совет') || trimmedLine.includes('совет')) {
-                    const text = trimmedLine.split(':').slice(1).join(':').trim();
-                    if (text) {
-                        resultSuggestions.textContent = text;
+                
+                // Советы (ищем по разным ключевым словам)
+                if ((line.toLowerCase().includes('добавить') || 
+                     line.toLowerCase().includes('рекоменд') || 
+                     line.toLowerCase().includes('совет') ||
+                     line.toLowerCase().includes('можно') ||
+                     line.toLowerCase().includes('стоит') ||
+                     line.toLowerCase().includes('попробу')) && !resultSuggestions.textContent) {
+                    const content = line.split(':').slice(1).join(':').trim();
+                    if (content) {
+                        resultSuggestions.textContent = content;
+                    } else if (lines[i + 1]) {
+                        // Если после заголовка идёт следующая строка, берём её
+                        resultSuggestions.textContent = lines[i + 1];
                     }
                 }
-            });
+            }
 
-            // Если советы всё ещё пустые, попробуем взять последнюю строку
+            // Если советы всё ещё пустые - берём всё после "добавить" или последние 2 строки
             if (!resultSuggestions.textContent) {
-                const lastLines = lines.slice(-3).join(' ');
-                if (lastLines.length > 10) {
-                    resultSuggestions.textContent = lastLines;
+                const fullText = text.toLowerCase();
+                if (fullText.includes('добавить')) {
+                    const afterAdd = text.substring(text.toLowerCase().indexOf('добавить'));
+                    const suggestion = afterAdd.split('\n').slice(0, 3).join(' ').replace(/что можно добавить:/gi, '').trim();
+                    if (suggestion.length > 5) resultSuggestions.textContent = suggestion;
+                } else {
+                    // Последний шанс - берём последние строки
+                    const lastLines = lines.slice(-2).join('. ');
+                    if (lastLines.length > 10) resultSuggestions.textContent = lastLines;
                 }
             }
 
