@@ -379,7 +379,7 @@
 
         // API
         const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
-        const API_KEY = "AIzaSyCGaia2NilJAKmH4y0Ll-w9uDPufjHiePg";
+        const API_KEY = "AIzaSyCGaia2NilJAKmH4y0Ll-w9uDPufjHiePg"; // Ключ должен быть пустой строкой
 
         const SYSTEM_PROMPT = `Ты — модный ИИ-стилист. Твоя задача — проанализировать фотографию человека и дать оценку его образу. Отвечай на русском языке. Твой ответ должен быть четко структурирован по четырем пунктам, которые запросил пользователь, и никак иначе:
 
@@ -431,7 +431,7 @@
                 await analyzeImage(base64Data);
             } catch (error) {
                 console.error(error);
-                showError('Не удалось проанализировать фото. Попробуй ещё раз');
+                showError(`Не удалось проанализировать фото: ${error.message}`);
             } finally {
                 loaderSection.style.display = 'none';
                 loaderSection.classList.add('hidden');
@@ -497,87 +497,63 @@
             };
 
             try {
-                const response = await fetch(`${API_URL}?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) throw new Error('Ошибка API');
-
-                const result = await response.json();
-                const text = result.candidates[0].content.parts[0].text;
+                const text = await callGeminiWithRetry(API_URL, payload);
                 displayResults(text);
             } catch (error) {
-                throw error;
+                console.error('Ошибка вызова API:', error);
+                throw new Error('Сбой при вызове ИИ. Попробуйте еще раз.'); // Передаем ошибку выше
             }
         }
 
         // Отображение
         function displayResults(text) {
-            console.log('Полный ответ от API:', text); // Для отладки
-            
-            // Разбиваем текст на строки
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            
-            // Ищем каждую секцию
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                
-                // Одежда
-                if ((line.toLowerCase().includes('одеты в') || line.toLowerCase().includes('одежда')) && !resultClothes.textContent) {
-                    const content = line.split(':').slice(1).join(':').trim();
-                    if (content) resultClothes.textContent = content;
-                    else if (lines[i + 1]) resultClothes.textContent = lines[i + 1];
-                }
-                
-                // Стиль
-                if (line.toLowerCase().includes('стиль') && !line.toLowerCase().includes('стилист') && !resultStyle.textContent) {
-                    const content = line.split(':').slice(1).join(':').trim();
-                    if (content) resultStyle.textContent = content;
-                    else if (lines[i + 1]) resultStyle.textContent = lines[i + 1];
-                }
-                
-                // Оценка
-                if ((line.toLowerCase().includes('сочетание') || line.toLowerCase().includes('оценка')) && !ratingText.textContent) {
-                    const match = line.match(/(\d+)/);
-                    if (match) {
-                        const rating = parseInt(match[1]);
-                        displayStars(rating);
-                        ratingText.textContent = `${rating}/10`;
-                    }
-                }
-                
-                // Советы (ищем по разным ключевым словам)
-                if ((line.toLowerCase().includes('добавить') || 
-                     line.toLowerCase().includes('рекоменд') || 
-                     line.toLowerCase().includes('совет') ||
-                     line.toLowerCase().includes('можно') ||
-                     line.toLowerCase().includes('стоит') ||
-                     line.toLowerCase().includes('попробу')) && !resultSuggestions.textContent) {
-                    const content = line.split(':').slice(1).join(':').trim();
-                    if (content) {
-                        resultSuggestions.textContent = content;
-                    } else if (lines[i + 1]) {
-                        // Если после заголовка идёт следующая строка, берём её
-                        resultSuggestions.textContent = lines[i + 1];
-                    }
-                }
+            // Очищаем текст от звездочек Markdown
+            const cleanedText = text.replace(/\*\*/g, '');
+
+            // Задаем значения по умолчанию
+            let outfit = "Не удалось распознать.";
+            let style = "Не удалось распознать.";
+            let rating = 7; // По умолчанию
+            let advice = "Не удалось распознать.";
+
+            // --- Используем RegEx для надежного парсинга ---
+
+            // 1. Одежда
+            const outfitMatch = cleanedText.match(/(?:Вы одеты в:|Одежда:)([\s\S]*?)(?:Ваш стиль:|Стиль:|Сочетание одежды:|Оценка:|Что можно добавить:|Советы:|$)/i);
+            if (outfitMatch && outfitMatch[1]) {
+                outfit = outfitMatch[1].trim().replace(/^- /gm, '').replace(/\n/g, '<br>');
             }
 
-            // Если советы всё ещё пустые - берём всё после "добавить" или последние 2 строки
-            if (!resultSuggestions.textContent) {
-                const fullText = text.toLowerCase();
-                if (fullText.includes('добавить')) {
-                    const afterAdd = text.substring(text.toLowerCase().indexOf('добавить'));
-                    const suggestion = afterAdd.split('\n').slice(0, 3).join(' ').replace(/что можно добавить:/gi, '').trim();
-                    if (suggestion.length > 5) resultSuggestions.textContent = suggestion;
-                } else {
-                    // Последний шанс - берём последние строки
-                    const lastLines = lines.slice(-2).join('. ');
-                    if (lastLines.length > 10) resultSuggestions.textContent = lastLines;
+            // 2. Стиль
+            const styleMatch = cleanedText.match(/(?:Ваш стиль:|Стиль:)([\s\S]*?)(?:Сочетание одежды:|Оценка:|Что можно добавить:|Советы:|$)/i);
+            if (styleMatch && styleMatch[1]) {
+                style = styleMatch[1].trim().replace(/^- /gm, '').replace(/\n/g, '<br>');
+            }
+
+            // 3. Рейтинг
+            const ratingMatch = cleanedText.match(/(?:Сочетание одежды:|Оценка:)([\s\S]*?)(?:Что можно добавить:|Советы:|$)/i);
+            if (ratingMatch && ratingMatch[1]) {
+                const ratingNumMatch = ratingMatch[1].match(/(\d+)/);
+                if (ratingNumMatch) {
+                    rating = parseInt(ratingNumMatch[1], 10);
                 }
             }
+            
+            // 4. Советы
+            const adviceMatch = cleanedText.match(/(?:Что можно добавить:|Советы:|Рекомендации:)([\s\S]*?)$/i);
+            if (adviceMatch && adviceMatch[1]) {
+                advice = adviceMatch[1].trim().replace(/^- /gm, '• ').replace(/\n/g, '<br>');
+            }
+            
+            // --- Применяем найденные значения ---
+            
+            resultClothes.innerHTML = outfit;
+            resultStyle.innerHTML = style;
+            
+            displayStars(rating);
+            ratingText.textContent = `${rating}/10`;
+            
+            resultSuggestions.innerHTML = advice;
 
             resultsSection.style.display = 'block';
             resultsSection.classList.remove('hidden');
@@ -596,6 +572,7 @@
         // Ошибка
         function showError(message) {
             errorText.textContent = message;
+            errorSection.style.display = 'block';
             errorSection.classList.remove('hidden');
         }
 
@@ -605,21 +582,62 @@
             errorSection.style.display = 'none';
             resultsSection.classList.add('hidden');
             resultsSection.style.display = 'none';
+            
+            // Сбрасываем текст
+            resultClothes.innerHTML = "";
+            resultStyle.innerHTML = "";
+            resultSuggestions.innerHTML = "";
+            ratingText.textContent = "";
+            stars.innerHTML = "";
         }
 
         // Полный сброс
         function resetToInitial() {
+            resetUI(); // Сначала сбрасываем UI
             hintSection.classList.remove('hidden');
             uploadSection.classList.remove('hidden');
             previewSection.classList.add('hidden');
             loaderSection.classList.add('hidden');
             loaderSection.style.display = 'none';
-            resultsSection.classList.add('hidden');
-            resultsSection.style.display = 'none';
-            errorSection.classList.add('hidden');
-            errorSection.style.display = 'none';
-            imageUpload.value = '';
+            imageUpload.value = ''; // Очищаем input
+        }
+
+        // Вызов API с retry
+        async function callGeminiWithRetry(url, payload, retries = 3, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(`${url}?key=${API_KEY}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        console.warn('API returned unexpected structure:', result);
+                        throw new Error('Не удалось получить анализ от ИИ.');
+                    }
+                } catch (error) {
+                    console.warn(`Попытка ${i + 1} не удалась. Ошибка: ${error.message}`);
+                    if (i === retries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+                }
+            }
+            throw new Error('Не удалось подключиться к API после нескольких попыток.');
         }
     </script>
 </body>
 </html>
+
+
