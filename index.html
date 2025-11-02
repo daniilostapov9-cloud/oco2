@@ -26,7 +26,7 @@
             overflow-x: hidden;
         }
 
-        /* Градиентный фон */
+        /* Все остальные стили из твоего оригинального файла */
         .gradient-bg {
             position: fixed;
             top: 0;
@@ -38,7 +38,6 @@
             opacity: 0.8;
         }
 
-        /* Контейнер приложения */
         .app-container {
             position: relative;
             z-index: 1;
@@ -46,12 +45,10 @@
             padding-bottom: 40px;
         }
 
-        /* Хедер */
         .app-header {
             padding: 20px 20px 30px;
         }
 
-        /* Карточка загрузки */
         .upload-card {
             background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
             border-radius: 24px;
@@ -96,7 +93,6 @@
             backdrop-filter: blur(10px);
         }
 
-        /* Превью карточка */
         .preview-card {
             background: #1a1a1a;
             border-radius: 24px;
@@ -110,7 +106,6 @@
             object-fit: cover;
         }
 
-        /* Карточки результатов */
         .result-card {
             background: #1a1a1a;
             border-radius: 20px;
@@ -130,7 +125,6 @@
             flex-shrink: 0;
         }
 
-        /* Звёзды */
         .rating-stars {
             display: flex;
             gap: 4px;
@@ -147,7 +141,6 @@
             background: #2a2a2a;
         }
 
-        /* Кнопки */
         .btn-primary {
             background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
             border: none;
@@ -184,7 +177,6 @@
             background: #333;
         }
 
-        /* Лоадер */
         .loader {
             width: 48px;
             height: 48px;
@@ -200,7 +192,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Hint */
         .hint {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -213,7 +204,6 @@
             gap: 12px;
         }
 
-        /* Анимации */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -228,172 +218,203 @@
         .stagger-3 { animation-delay: 0.3s; }
         .stagger-4 { animation-delay: 0.4s; }
 
-        /* Скрытие input */
-        #image-upload {
-            display: none;
-        }
-
-        /* Статус бар spacer */
-        .status-bar-spacer {
-            height: env(safe-area-inset-top);
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
     <div class="gradient-bg"></div>
-
+    
     <div class="app-container">
-        <div class="status-bar-spacer"></div>
-
-        <header class="app-header">
+        <!-- Header -->
+        <div class="app-header">
             <h1 class="text-3xl font-bold mb-2">ОСО</h1>
-            <p class="text-white/60 text-sm">Оцени свою одежду</p>
-        </header>
+            <p class="text-base text-gray-400">Оцени свою одежду</p>
+        </div>
 
-        <main class="px-5">
+        <!-- Main content -->
+        <div class="px-5 space-y-5">
             
-            <div id="hint-section" class="hint mb-6">
-                <div class="text-2xl">💡</div>
-                <div class="text-sm">Загрузи фото в полный рост для точного анализа</div>
-            </div>
-
-            <div id="upload-section">
-                <label for="image-upload">
-                    <div class="upload-card">
+            <!-- Upload Section -->
+            <section id="uploadSection">
+                <label for="imageUpload" class="upload-card block">
+                    <div class="relative z-10">
                         <div class="upload-icon">
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
                             </svg>
                         </div>
-                        <h3 class="text-xl font-semibold mb-2">Загрузить фото</h3>
-                        <p class="text-white/80 text-sm">Нажми, чтобы выбрать</p>
+                        <h2 class="text-2xl font-bold mb-2">Загрузи фото</h2>
+                        <p class="text-base opacity-90">Нажми, чтобы выбрать фотографию</p>
                     </div>
                 </label>
-                <input type="file" id="image-upload" accept="image/*">
-            </div>
+                <input type="file" id="imageUpload" accept="image/*" capture="environment" class="hidden">
+            </section>
 
-            <div id="preview-section" class="hidden mb-6">
-                <div class="preview-card">
-                    <img id="preview-image" class="preview-image" src="" alt="Превью" style="display: none;">
+            <!-- Hint Section -->
+            <section id="hintSection" class="hint fade-in">
+                <span class="text-2xl">💡</span>
+                <div class="flex-1">
+                    <p class="font-semibold mb-1">Совет:</p>
+                    <p class="text-sm">Для лучшего результата сфотографируйся в полный рост при хорошем освещении</p>
                 </div>
-            </div>
+            </section>
 
-            <div id="loader-section" class="hidden py-12 text-center" style="display: none;">
-                <div class="loader mb-4"></div>
-                <p class="text-white/60 text-sm">Анализирую твой стиль...</p>
-            </div>
+            <!-- Preview Section -->
+            <section id="previewSection" class="hidden">
+                <div class="preview-card fade-in">
+                    <img id="previewImage" src="" alt="Preview" class="preview-image" style="display: none;">
+                </div>
+                <div class="flex gap-3 mt-5">
+                    <button id="analyzeBtn" class="btn-primary">
+                        <span>✨ Проанализировать</span>
+                    </button>
+                    <button id="changeBtn" class="btn-secondary" style="max-width: 120px;">
+                        <span>🔄</span>
+                    </button>
+                </div>
+            </section>
 
-            <div id="results-section" class="hidden space-y-4" style="display: none;">
-                <div class="result-card fade-in">
+            <!-- Loader Section -->
+            <section id="loaderSection" class="hidden" style="display: none;">
+                <div class="text-center py-12 fade-in">
+                    <div class="loader mb-6"></div>
+                    <p class="text-xl font-semibold mb-2">Анализируем твой образ...</p>
+                    <p class="text-sm text-gray-400">Это займет несколько секунд</p>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="resultsSection" class="hidden space-y-4" style="display: none;">
+                
+                <!-- Одежда -->
+                <div class="result-card fade-in stagger-1">
                     <div class="flex gap-4">
-                        <div class="result-icon">👔</div>
+                        <div class="result-icon">👕</div>
                         <div class="flex-1">
-                            <h3 class="font-semibold mb-2">Твоя одежда</h3>
-                            <p id="result-clothes" class="text-white/70 text-sm leading-relaxed"></p>
+                            <h3 class="text-lg font-bold mb-2">Твоя одежда</h3>
+                            <p id="resultClothes" class="text-sm text-gray-300 leading-relaxed"></p>
                         </div>
                     </div>
                 </div>
 
-                <div class="result-card fade-in stagger-1">
+                <!-- Стиль -->
+                <div class="result-card fade-in stagger-2">
                     <div class="flex gap-4">
                         <div class="result-icon">✨</div>
                         <div class="flex-1">
-                            <h3 class="font-semibold mb-2">Твой стиль</h3>
-                            <p id="result-style" class="text-white/70 text-sm leading-relaxed"></p>
+                            <h3 class="text-lg font-bold mb-2">Твой стиль</h3>
+                            <p id="resultStyle" class="text-sm text-gray-300 leading-relaxed"></p>
                         </div>
                     </div>
                 </div>
 
-                <div class="result-card fade-in stagger-2">
+                <!-- Рейтинг -->
+                <div class="result-card fade-in stagger-3">
                     <div class="flex gap-4">
                         <div class="result-icon">⭐</div>
                         <div class="flex-1">
-                            <h3 class="font-semibold mb-3">Оценка образа</h3>
-                            <div class="rating-stars mb-2" id="stars"></div>
-                            <p id="rating-text" class="text-white/70 text-sm"></p>
+                            <h3 class="text-lg font-bold mb-3">Сочетание одежды</h3>
+                            <div class="flex items-center gap-3 mb-2">
+                                <div id="stars" class="rating-stars"></div>
+                                <span id="ratingText" class="text-2xl font-bold text-yellow-400"></span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="result-card fade-in stagger-3">
+                <!-- Советы -->
+                <div class="result-card fade-in stagger-4">
                     <div class="flex gap-4">
                         <div class="result-icon">💡</div>
                         <div class="flex-1">
-                            <h3 class="font-semibold mb-2">Советы стилиста</h3>
-                            <p id="result-suggestions" class="text-white/70 text-sm leading-relaxed"></p>
+                            <h3 class="text-lg font-bold mb-2">Что можно добавить</h3>
+                            <p id="resultSuggestions" class="text-sm text-gray-300 leading-relaxed"></p>
                         </div>
                     </div>
                 </div>
 
-                <button id="btn-new-photo" class="btn-secondary fade-in stagger-4">
-                    Загрузить новое фото
+                <!-- Кнопка "Загрузить еще" -->
+                <button id="newPhotoBtn" class="btn-primary mt-4">
+                    📸 Загрузить новое фото
                 </button>
-            </div>
+                
+            </section>
 
-            <div id="error-section" class="hidden">
-                <div class="result-card text-center">
-                    <div class="text-4xl mb-3">😕</div>
-                    <p id="error-text" class="text-red-400 text-sm"></p>
+            <!-- Error Section -->
+            <section id="errorSection" class="hidden" style="display: none;">
+                <div class="result-card fade-in" style="background: #2d1515; border: 1px solid #5c2626;">
+                    <div class="flex gap-4">
+                        <div class="result-icon" style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);">⚠️</div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-bold mb-2">Ошибка</h3>
+                            <p id="errorText" class="text-sm text-gray-300"></p>
+                        </div>
+                    </div>
                 </div>
-            </div>
+                <button id="retryBtn" class="btn-primary mt-4">
+                    🔄 Попробовать снова
+                </button>
+            </section>
 
-        </main>
+        </div>
     </div>
 
     <script>
-        // DOM элементы (все как было)
-        const imageUpload = document.getElementById('image-upload');
-        const hintSection = document.getElementById('hint-section');
-        const uploadSection = document.getElementById('upload-section');
-        const previewSection = document.getElementById('preview-section');
-        const previewImage = document.getElementById('preview-image');
-        const loaderSection = document.getElementById('loader-section');
-        const resultsSection = document.getElementById('results-section');
-        const errorSection = document.getElementById('error-section');
-        const errorText = document.getElementById('error-text');
-        const btnNewPhoto = document.getElementById('btn-new-photo');
+        // ИЗМЕНЕНО: URL бэкенда - теперь это твой Vercel API
+        const BACKEND_API_URL = '/api/gemini'; // Относительный путь к твоему Vercel API
 
-        // Результаты (все как было)
-        const resultClothes = document.getElementById('result-clothes');
-        const resultStyle = document.getElementById('result-style');
+        // DOM элементы
+        const imageUpload = document.getElementById('imageUpload');
+        const uploadSection = document.getElementById('uploadSection');
+        const hintSection = document.getElementById('hintSection');
+        const previewSection = document.getElementById('previewSection');
+        const previewImage = document.getElementById('previewImage');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const changeBtn = document.getElementById('changeBtn');
+        const loaderSection = document.getElementById('loaderSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const errorSection = document.getElementById('errorSection');
+        const newPhotoBtn = document.getElementById('newPhotoBtn');
+        const retryBtn = document.getElementById('retryBtn');
+        
+        // Результаты
+        const resultClothes = document.getElementById('resultClothes');
+        const resultStyle = document.getElementById('resultStyle');
         const stars = document.getElementById('stars');
-        const ratingText = document.getElementById('rating-text');
-        const resultSuggestions = document.getElementById('result-suggestions');
+        const ratingText = document.getElementById('ratingText');
+        const resultSuggestions = document.getElementById('resultSuggestions');
+        const errorText = document.getElementById('errorText');
 
-        // --- ИЗМЕНЕНИЯ ---
-        // API
-        // const API_URL = "..." // УДАЛЕНО - теперь это на бэкенде
-        // const API_KEY = "..." // УДАЛЕНО - теперь это на бэкенде
-        // const SYSTEM_PROMPT = "..." // УДАЛЕНО - теперь это на бэкенде
+        let selectedFile = null;
 
-        // Новый URL - это адрес НАШЕЙ бэкенд-функции на Vercel
-        const BACKEND_API_URL = '/api/gemini'; 
-        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
-
-        // Загрузка файла (без изменений)
-        imageUpload.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            if (!file.type.startsWith('image/')) {
-                showError('Пожалуйста, выбери изображение');
-                return;
+        // Обработчики
+        imageUpload.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                selectedFile = e.target.files[0];
+                showPreview(selectedFile);
             }
-
-            resetUI();
-            showPreview(file);
-            await processImage(file);
         });
 
-        // Новое фото (без изменений)
-        btnNewPhoto.addEventListener('click', () => {
-            resetToInitial();
+        analyzeBtn.addEventListener('click', () => {
+            // ДОБАВЛЕНО: Уведомляем Android о нажатии на кнопку анализа
+            if (typeof Android !== 'undefined' && Android.onAnalyzeClicked) {
+                Android.onAnalyzeClicked();
+            }
+            
+            if (selectedFile) {
+                processImage(selectedFile);
+            }
         });
 
-        // Превью (без изменений)
+        changeBtn.addEventListener('click', resetToInitial);
+        newPhotoBtn.addEventListener('click', resetToInitial);
+        retryBtn.addEventListener('click', resetToInitial);
+
+        // Функции
         function showPreview(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -406,14 +427,12 @@
             reader.readAsDataURL(file);
         }
 
-        // Обработка (без изменений)
         async function processImage(file) {
             loaderSection.style.display = 'block';
             loaderSection.classList.remove('hidden');
 
             try {
                 const base64Data = await resizeAndConvert(file);
-                // Вызываем нашу функцию `analyzeImage`, которая теперь обращается к бэкенду
                 await analyzeImage(base64Data);
             } catch (error) {
                 console.error(error);
@@ -424,7 +443,6 @@
             }
         }
 
-        // Сжатие (без изменений)
         function resizeAndConvert(file, maxSize = 512, quality = 0.7) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -462,53 +480,38 @@
             });
         }
 
-        // --- ИЗМЕНЕНИЯ ---
-        // Анализ (теперь обращается к НАШЕМУ бэкенду)
         async function analyzeImage(base64Data) {
-            // 1. Готовим payload для НАШЕГО бэкенда
             const payload = {
                 imageData: base64Data
             };
 
             try {
-                // 2. Вызываем наш бэкенд (новая функция `callBackendApi` ниже)
                 const text = await callBackendApi(BACKEND_API_URL, payload);
-                // 3. Отображаем результат (эта функция не изменилась)
                 displayResults(text);
             } catch (error) {
                 console.error('Ошибка вызова API:', error);
-                // Показываем ошибку, которую вернул наш бэкенд
-                showError(error.message); 
+                showError(error.message);
             }
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
-        // Отображение (без изменений)
         function displayResults(text) {
-            // Очищаем текст от звездочек Markdown
             const cleanedText = text.replace(/\*\*/g, '');
 
-            // Задаем значения по умолчанию
             let outfit = "Не удалось распознать.";
             let style = "Не удалось распознать.";
-            let rating = 7; // По умолчанию
+            let rating = 7;
             let advice = "Не удалось распознать.";
 
-            // --- Используем RegEx для надежного парсинга ---
-
-            // 1. Одежда
             const outfitMatch = cleanedText.match(/(?:Вы одеты в:|Одежда:)([\s\S]*?)(?:Ваш стиль:|Стиль:|Сочетание одежды:|Оценка:|Что можно добавить:|Советы:|$)/i);
             if (outfitMatch && outfitMatch[1]) {
                 outfit = outfitMatch[1].trim().replace(/^- /gm, '').replace(/\n/g, '<br>');
             }
 
-            // 2. Стиль
             const styleMatch = cleanedText.match(/(?:Ваш стиль:|Стиль:)([\s\S]*?)(?:Сочетание одежды:|Оценка:|Что можно добавить:|Советы:|$)/i);
             if (styleMatch && styleMatch[1]) {
                 style = styleMatch[1].trim().replace(/^- /gm, '').replace(/\n/g, '<br>');
             }
 
-            // 3. Рейтинг
             const ratingMatch = cleanedText.match(/(?:Сочетание одежды:|Оценка:)([\s\S]*?)(?:Что можно добавить:|Советы:|$)/i);
             if (ratingMatch && ratingMatch[1]) {
                 const ratingNumMatch = ratingMatch[1].match(/(\d+)/);
@@ -517,13 +520,10 @@
                 }
             }
             
-            // 4. Советы
             const adviceMatch = cleanedText.match(/(?:Что можно добавить:|Советы:|Рекомендации:)([\s\S]*?)$/i);
             if (adviceMatch && adviceMatch[1]) {
                 advice = adviceMatch[1].trim().replace(/^- /gm, '• ').replace(/\n/g, '<br>');
             }
-            
-            // --- Применяем найденные значения ---
             
             resultClothes.innerHTML = outfit;
             resultStyle.innerHTML = style;
@@ -537,7 +537,6 @@
             resultsSection.classList.remove('hidden');
         }
 
-        // Звёзды (без изменений)
         function displayStars(rating) {
             stars.innerHTML = '';
             for (let i = 0; i < 10; i++) {
@@ -547,21 +546,18 @@
             }
         }
 
-        // Ошибка (без изменений)
         function showError(message) {
             errorText.textContent = message;
             errorSection.style.display = 'block';
             errorSection.classList.remove('hidden');
         }
 
-        // Сброс UI (без изменений)
         function resetUI() {
             errorSection.classList.add('hidden');
             errorSection.style.display = 'none';
             resultsSection.classList.add('hidden');
             resultsSection.style.display = 'none';
             
-            // Сбрасываем текст
             resultClothes.innerHTML = "";
             resultStyle.innerHTML = "";
             resultSuggestions.innerHTML = "";
@@ -569,41 +565,31 @@
             stars.innerHTML = "";
         }
 
-        // Полный сброс (без изменений)
         function resetToInitial() {
-            resetUI(); // Сначала сбрасываем UI
+            resetUI();
             hintSection.classList.remove('hidden');
             uploadSection.classList.remove('hidden');
             previewSection.classList.add('hidden');
             loaderSection.classList.add('hidden');
             loaderSection.style.display = 'none';
-            imageUpload.value = ''; // Очищаем input
+            imageUpload.value = '';
         }
 
-        // --- ИЗМЕНЕНИЯ ---
-        // Старая `callGeminiWithRetry` переименована в `callBackendApi`
-        // и теперь обращается к НАШЕМУ бэкенду
         async function callBackendApi(url, payload, retries = 3, delay = 1000) {
             for (let i = 0; i < retries; i++) {
                 try {
-                    // 1. Делаем запрос к нашему /api/gemini
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
-                        // Ключ API_KEY здесь больше не нужен!
                     });
 
-                    // 2. Получаем JSON от нашего бэкенда
                     const result = await response.json();
 
-                    // 3. Проверяем, не вернул ли бэкенд ошибку
                     if (!response.ok) {
-                        // `result.error` - это то, что мы отправили с бэкенда
                         throw new Error(result.error || `Ошибка сервера: ${response.status}`);
                     }
 
-                    // 4. Если все ОК, наш бэкенд вернул { text: "..." }
                     if (result.text) {
                         return result.text;
                     } else {
@@ -612,7 +598,6 @@
                 } catch (error) {
                     console.warn(`Попытка ${i + 1} не удалась. Ошибка: ${error.message}`);
                     if (i === retries - 1) {
-                         // Прокидываем ошибку наверх, чтобы `showError` ее показал
                         throw error;
                     }
                     await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
@@ -620,7 +605,6 @@
             }
             throw new Error('Не удалось подключиться к API после нескольких попыток.');
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
     </script>
 </body>
 </html>
