@@ -1,4 +1,348 @@
-<script>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>ОСО - Оцени свою одежду</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background: #0a0a0a;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        /* Градиентный фон */
+        .gradient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 300px;
+            background: linear-gradient(180deg, #7c3aed 0%, #2563eb 50%, #0a0a0a 100%);
+            z-index: 0;
+            opacity: 0.8;
+        }
+
+        /* Контейнер приложения */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+
+        /* Хедер */
+        .app-header {
+            padding: 20px 20px 30px;
+        }
+
+        /* Карточка загрузки */
+        .upload-card {
+            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            border-radius: 24px;
+            padding: 40px 24px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(124, 58, 237, 0.3);
+            transition: transform 0.2s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .upload-card:active {
+            transform: scale(0.98);
+        }
+
+        .upload-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Превью карточка */
+        .preview-card {
+            background: #1a1a1a;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .preview-image {
+            width: 100%;
+            aspect-ratio: 3/4;
+            object-fit: cover;
+        }
+
+        /* Карточки результатов */
+        .result-card {
+            background: #1a1a1a;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        /* Звёзды */
+        .rating-stars {
+            display: flex;
+            gap: 4px;
+        }
+
+        .star {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        }
+
+        .star.empty {
+            background: #2a2a2a;
+        }
+
+        /* Кнопки */
+        .btn-primary {
+            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            border: none;
+            border-radius: 16px;
+            padding: 18px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: #2a2a2a;
+            border: none;
+            border-radius: 16px;
+            padding: 18px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+            background: #333;
+        }
+
+        /* Лоадер */
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #2a2a2a;
+            border-top: 4px solid #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Hint */
+        .hint {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 16px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+        .stagger-4 { animation-delay: 0.4s; }
+
+        /* Скрытие input */
+        #image-upload {
+            display: none;
+        }
+
+        /* Статус бар spacer */
+        .status-bar-spacer {
+            height: env(safe-area-inset-top);
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+
+    <div class="app-container">
+        <div class="status-bar-spacer"></div>
+
+        <header class="app-header">
+            <h1 class="text-3xl font-bold mb-2">ОСО</h1>
+            <p class="text-white/60 text-sm">Оцени свою одежду</p>
+        </header>
+
+        <main class="px-5">
+            
+            <div id="hint-section" class="hint mb-6">
+                <div class="text-2xl">💡</div>
+                <div class="text-sm">Загрузи фото в полный рост для точного анализа</div>
+            </div>
+
+            <div id="upload-section">
+                <label for="image-upload">
+                    <div class="upload-card">
+                        <div class="upload-icon">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-2">Загрузить фото</h3>
+                        <p class="text-white/80 text-sm">Нажми, чтобы выбрать</p>
+                    </div>
+                </label>
+                <input type="file" id="image-upload" accept="image/*">
+            </div>
+
+            <div id="preview-section" class="hidden mb-6">
+                <div class="preview-card">
+                    <img id="preview-image" class="preview-image" src="" alt="Превью" style="display: none;">
+                </div>
+            </div>
+
+            <div id="loader-section" class="hidden py-12 text-center" style="display: none;">
+                <div class="loader mb-4"></div>
+                <p class="text-white/60 text-sm">Анализирую твой стиль...</p>
+            </div>
+
+            <div id="results-section" class="hidden space-y-4" style="display: none;">
+                <div class="result-card fade-in">
+                    <div class="flex gap-4">
+                        <div class="result-icon">👔</div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold mb-2">Твоя одежда</h3>
+                            <p id="result-clothes" class="text-white/70 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-card fade-in stagger-1">
+                    <div class="flex gap-4">
+                        <div class="result-icon">✨</div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold mb-2">Твой стиль</h3>
+                            <p id="result-style" class="text-white/70 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-card fade-in stagger-2">
+                    <div class="flex gap-4">
+                        <div class="result-icon">⭐</div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold mb-3">Оценка образа</h3>
+                            <div class="rating-stars mb-2" id="stars"></div>
+                            <p id="rating-text" class="text-white/70 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-card fade-in stagger-3">
+                    <div class="flex gap-4">
+                        <div class="result-icon">💡</div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold mb-2">Советы стилиста</h3>
+                            <p id="result-suggestions" class="text-white/70 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="btn-new-photo" class="btn-secondary fade-in stagger-4">
+                    Загрузить новое фото
+                </button>
+            </div>
+
+            <div id="error-section" class="hidden">
+                <div class="result-card text-center">
+                    <div class="text-4xl mb-3">😕</div>
+                    <p id="error-text" class="text-red-400 text-sm"></p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
         // DOM элементы (все как было)
         const imageUpload = document.getElementById('image-upload');
         const hintSection = document.getElementById('hint-section');
@@ -18,8 +362,7 @@
         const ratingText = document.getElementById('rating-text');
         const resultSuggestions = document.getElementById('result-suggestions');
 
-        // --- ИЗМЕНЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ ---
-
+        // --- ИЗМЕНЕНИЯ ---
         // API
         // const API_URL = "..." // УДАЛЕНО - теперь это на бэкенде
         // const API_KEY = "..." // УДАЛЕНО - теперь это на бэкенде
@@ -27,10 +370,10 @@
 
         // Новый URL - это адрес НАШЕЙ бэкенд-функции на Vercel
         const BACKEND_API_URL = '/api/gemini'; 
+        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
-        // --- (Код ниже до `analyzeImage` остается без изменений) ---
 
-        // Загрузка файла
+        // Загрузка файла (без изменений)
         imageUpload.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -45,12 +388,12 @@
             await processImage(file);
         });
 
-        // Новое фото
+        // Новое фото (без изменений)
         btnNewPhoto.addEventListener('click', () => {
             resetToInitial();
         });
 
-        // Превью
+        // Превью (без изменений)
         function showPreview(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -63,14 +406,13 @@
             reader.readAsDataURL(file);
         }
 
-        // Обработка
+        // Обработка (без изменений)
         async function processImage(file) {
             loaderSection.style.display = 'block';
             loaderSection.classList.remove('hidden');
 
             try {
                 const base64Data = await resizeAndConvert(file);
-                // --- ИЗМЕНЕНО ---
                 // Вызываем нашу функцию `analyzeImage`, которая теперь обращается к бэкенду
                 await analyzeImage(base64Data);
             } catch (error) {
@@ -120,7 +462,8 @@
             });
         }
 
-        // --- Функция `analyzeImage` СИЛЬНО ИЗМЕНЕНА ---
+        // --- ИЗМЕНЕНИЯ ---
+        // Анализ (теперь обращается к НАШЕМУ бэкенду)
         async function analyzeImage(base64Data) {
             // 1. Готовим payload для НАШЕГО бэкенда
             const payload = {
@@ -128,33 +471,44 @@
             };
 
             try {
-                // 2. Вызываем наш бэкенд (функция `callBackendApi` ниже)
+                // 2. Вызываем наш бэкенд (новая функция `callBackendApi` ниже)
                 const text = await callBackendApi(BACKEND_API_URL, payload);
                 // 3. Отображаем результат (эта функция не изменилась)
                 displayResults(text);
             } catch (error) {
-                console.error('Ошибка вызова бэкенда:', error);
-                showError(error.message); // Показываем ошибку, которую вернул наш бэкенд
+                console.error('Ошибка вызова API:', error);
+                // Показываем ошибку, которую вернул наш бэкенд
+                showError(error.message); 
             }
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
         // Отображение (без изменений)
         function displayResults(text) {
-            // ... (весь твой код парсинга и отображения остается здесь) ...
+            // Очищаем текст от звездочек Markdown
             const cleanedText = text.replace(/\*\*/g, '');
+
+            // Задаем значения по умолчанию
             let outfit = "Не удалось распознать.";
             let style = "Не удалось распознать.";
-            let rating = 7; 
+            let rating = 7; // По умолчанию
             let advice = "Не удалось распознать.";
 
+            // --- Используем RegEx для надежного парсинга ---
+
+            // 1. Одежда
             const outfitMatch = cleanedText.match(/(?:Вы одеты в:|Одежда:)([\s\S]*?)(?:Ваш стиль:|Стиль:|Сочетание одежды:|Оценка:|Что можно добавить:|Советы:|$)/i);
             if (outfitMatch && outfitMatch[1]) {
                 outfit = outfitMatch[1].trim().replace(/^- /gm, '').replace(/\n/g, '<br>');
             }
+
+            // 2. Стиль
             const styleMatch = cleanedText.match(/(?:Ваш стиль:|Стиль:)([\s\S]*?)(?:Сочетание одежды:|Оценка:|Что можно добавить:|Советы:|$)/i);
             if (styleMatch && styleMatch[1]) {
                 style = styleMatch[1].trim().replace(/^- /gm, '').replace(/\n/g, '<br>');
             }
+
+            // 3. Рейтинг
             const ratingMatch = cleanedText.match(/(?:Сочетание одежды:|Оценка:)([\s\S]*?)(?:Что можно добавить:|Советы:|$)/i);
             if (ratingMatch && ratingMatch[1]) {
                 const ratingNumMatch = ratingMatch[1].match(/(\d+)/);
@@ -162,15 +516,21 @@
                     rating = parseInt(ratingNumMatch[1], 10);
                 }
             }
+            
+            // 4. Советы
             const adviceMatch = cleanedText.match(/(?:Что можно добавить:|Советы:|Рекомендации:)([\s\S]*?)$/i);
             if (adviceMatch && adviceMatch[1]) {
                 advice = adviceMatch[1].trim().replace(/^- /gm, '• ').replace(/\n/g, '<br>');
             }
             
+            // --- Применяем найденные значения ---
+            
             resultClothes.innerHTML = outfit;
             resultStyle.innerHTML = style;
+            
             displayStars(rating);
             ratingText.textContent = `${rating}/10`;
+            
             resultSuggestions.innerHTML = advice;
 
             resultsSection.style.display = 'block';
@@ -200,6 +560,8 @@
             errorSection.style.display = 'none';
             resultsSection.classList.add('hidden');
             resultsSection.style.display = 'none';
+            
+            // Сбрасываем текст
             resultClothes.innerHTML = "";
             resultStyle.innerHTML = "";
             resultSuggestions.innerHTML = "";
@@ -209,17 +571,18 @@
 
         // Полный сброс (без изменений)
         function resetToInitial() {
-            resetUI();
+            resetUI(); // Сначала сбрасываем UI
             hintSection.classList.remove('hidden');
             uploadSection.classList.remove('hidden');
             previewSection.classList.add('hidden');
             loaderSection.classList.add('hidden');
             loaderSection.style.display = 'none';
-            imageUpload.value = '';
+            imageUpload.value = ''; // Очищаем input
         }
 
-        // --- Функция `callGeminiWithRetry` ПЕРЕИМЕНОВАНА и ИЗМЕНЕНА ---
-        // Теперь она обращается к НАШЕМУ бэкенду
+        // --- ИЗМЕНЕНИЯ ---
+        // Старая `callGeminiWithRetry` переименована в `callBackendApi`
+        // и теперь обращается к НАШЕМУ бэкенду
         async function callBackendApi(url, payload, retries = 3, delay = 1000) {
             for (let i = 0; i < retries; i++) {
                 try {
@@ -257,6 +620,7 @@
             }
             throw new Error('Не удалось подключиться к API после нескольких попыток.');
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
     </script>
 </body>
 </html>
