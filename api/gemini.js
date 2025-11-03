@@ -1,5 +1,5 @@
 // /api/gemini.js
-
+export const config = { runtime: 'nodejs20.x' };
 import { sql } from "@vercel/postgres";
 
 const API_KEY = process.env.GEMINI_API_KEY;
