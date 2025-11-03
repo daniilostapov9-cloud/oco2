@@ -1,4 +1,5 @@
 // /api/get-limit.js
+export const config = { runtime: 'nodejs' }; // без версии!
 import { sql } from "@vercel/postgres";
 
 function parseCookies(req){
