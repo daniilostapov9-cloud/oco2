@@ -249,6 +249,8 @@
           const span = document.getElementById('rem-left');
           if(span) span.textContent = `${getRemainingTodayClient()} / 5`;
         }
+        
+        // --- ВОТ ТУТ ИСПРАВЛЕНИЕ ---
         function setAuthUI(){
           const authBar = document.getElementById('auth-bar');
           if(!authBar) return;
@@ -263,10 +265,11 @@
             if(label){ label.style.pointerEvents='none'; label.style.opacity='0.5'; }
           }else{
             const left = getRemainingTodayClient();
+            // Добавил <br> и немного line-height
             authBar.innerHTML = `
                 <div class="text-lg" style="flex-shrink: 0;">✅</div>
-                <div class="text-sm">
-                    Авторизовано • Осталось на сегодня: 
+                <div class="text-sm" style="line-height: 1.6;">
+                    Авторизовано • <br>Осталось на сегодня: 
                     <b id="rem-left" class="text-white">${left} / 5</b>
                 </div>
             `;
@@ -300,14 +303,9 @@
           });
         }
         
-        // --- НОВАЯ ЛОГИКА (1/3) ---
-        // Глобальная переменная для СТРОКИ Base64
-        let pendingBase64Data = null;
+        // ===== Логика загрузки (исправленная) =====
+        let pendingBase64Data = null; // Глобальная переменная для СТРОКИ Base64
 
-        // ===== Логика загрузки =====
-        
-        // --- НОВАЯ ЛОГИКА (2/3) ---
-        // Теперь этот обработчик делает ВСЮ подготовку ДО показа рекламы
         imageUpload.addEventListener('change', async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -324,32 +322,24 @@
             }
 
             try {
-                // 1. Показываем UI: превью и лоадер (т.к. конвертация требует времени)
                 resetUI();
-                showPreview(file); // Эта функция сама прочитает файл для превью
+                showPreview(file); 
                 loaderSection.style.display = 'block';
                 loaderSection.classList.remove('hidden');
 
-                // 2. Конвертируем файл в Base64 СРАЗУ
                 const base64Data = await resizeAndConvert(file);
-                
-                // 3. Сохраняем СТРОКУ Base64 (она переживет навигацию)
                 window.pendingBase64Data = base64Data;
 
-                // 4. Прячем лоадер, мы готовы к рекламе
                 loaderSection.style.display = 'none';
                 loaderSection.classList.add('hidden');
 
-                // 5. Запускаем показ рекламы в Android
                 window.location.href = '/start-analysis';
 
-                // 6. Если мы в браузере, Android не сработает, вызываем вручную
                 if (!isWebView()) {
                     runAnalysisFromNative();
                 }
 
             } catch (error) {
-                // Если ошибка на этапе resize
                 console.error("Ошибка при конвертации файла:", error);
                 showError(error.message || 'Не удалось обработать изображение');
                 loaderSection.style.display = 'none';
@@ -358,23 +348,19 @@
             }
         });
         
-        // --- НОВАЯ ЛОГИКА (3/3) ---
-        // Эта функция теперь ТОЛЬКО вызывает API с ГОТОВЫМИ данными
         async function runAnalysisFromNative() {
-            const base64Data = window.pendingBase64Data; // Получаем СТРОКУ
+            const base64Data = window.pendingBase64Data; 
             if (!base64Data) {
                 console.warn("Native app tried to start analysis, but no base64 data was pending.");
                 return;
             }
 
-            // UI: preview уже показан, показываем лоадер
             loaderSection.style.display = 'block';
             loaderSection.classList.remove('hidden');
             
-            showInterstitialAd(); // (в WebView ничего не сделает)
+            showInterstitialAd(); 
 
             try {
-                // ВЫЗЫВАЕМ API, пропуская resize
                 const text = await callBackendApi(BACKEND_API_URL, { imageData: base64Data });
                 displayResults(text);
                 bumpClientCounter();
@@ -382,14 +368,12 @@
                 console.error("Ошибка из callBackendApi:", error);
                 showError(error.message || 'Не удалось проанализировать фото');
             } finally {
-                // Очищаем все
                 loaderSection.style.display = 'none';
                 loaderSection.classList.add('hidden');
                 window.pendingBase64Data = null;
                 imageUpload.value = ''; 
             }
         }
-
 
         btnNewPhoto?.addEventListener('click', resetToInitial);
 
@@ -405,7 +389,6 @@
             reader.readAsDataURL(file);
         }
 
-        // Эта функция остается без изменений, она нам нужна
         function resizeAndConvert(file, maxSize = 512, quality = 0.7) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -427,14 +410,13 @@
             });
         }
 
-        // Эта функция остается без изменений
         async function callBackendApi(url, payload, retries = 3, delay = 800) {
           for (let i = 0; i < retries; i++) {
             try {
               const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', // важно: отправляем куки
+                credentials: 'include', 
                 body: JSON.stringify(payload)
               });
               const result = await response.json();
@@ -450,7 +432,6 @@
           }
         }
 
-        // Эта функция остается без изменений
         function displayResults(text) {
             const cleanedText = text.replace(/\*\*/g, '');
             let outfit = "Не удалось распознать.";
@@ -483,7 +464,6 @@
             resultsSection.classList.remove('hidden');
         }
 
-        // Эта функция остается без изменений
         function displayStars(rating) {
             stars.innerHTML = '';
             for (let i = 0; i < 10; i++) {
@@ -493,14 +473,12 @@
             }
         }
 
-        // Эта функция остается без изменений
         function showError(message) {
             errorText.textContent = message;
             errorSection.style.display = 'block';
             errorSection.classList.remove('hidden');
         }
 
-        // Эта функция остается без изменений
         function resetUI() {
             errorSection.classList.add('hidden');
             errorSection.style.display = 'none';
@@ -513,7 +491,6 @@
             stars.innerHTML = "";
         }
 
-        // Эта функция изменена, чтобы сбрасывать новую глобальную переменную
         function resetToInitial() {
             resetUI();
             hintSection.classList.remove('hidden');
@@ -522,7 +499,7 @@
             loaderSection.classList.add('hidden');
             loaderSection.style.display = 'none';
             imageUpload.value = '';
-            window.pendingBase64Data = null; // <- Важный сброс
+            window.pendingBase64Data = null; 
         }
     </script>
 </body>
