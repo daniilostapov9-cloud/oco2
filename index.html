@@ -223,35 +223,20 @@
 
         // ===== Конфиг =====
         const BACKEND_API_URL = '/api/gemini';
-        const YANDEX_WEB_BLOCK_ID = 'R-A-XXXXXXX-1';
+        const YANDEX_WEB_BLOCK_ID = 'R-A-XXXXXXX-1'; // (оставлен твой)
 
-        // ===== Авторизация и UI (с исправлением 3/5) =====
+        // ===== Авторизация (только getCookie) =====
         function getCookie(name){
           return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1];
         }
         const vkToken = getCookie('vk_id_token');
-
-        function getRemainingTodayClient(){
-          const today = new Date().toISOString().slice(0,10);
-          const store = JSON.parse(localStorage.getItem('oso_usage')||'{}');
-          if(store.date !== today) return 5;
-          return Math.max(0, 5 - (store.count||0));
-        }
-        function bumpClientCounter(){
-          const today = new Date().toISOString().slice(0,10);
-          const store = JSON.parse(localStorage.getItem('oso_usage')||'{}');
-          if(store.date !== today){
-            localStorage.setItem('oso_usage', JSON.stringify({date:today,count:1}));
-          }else{
-            store.count = (store.count||0)+1;
-            localStorage.setItem('oso_usage', JSON.stringify(store));
-          }
-          const span = document.getElementById('rem-left');
-          if(span) span.textContent = `${getRemainingTodayClient()} / 5`;
-        }
         
-        // --- ВОТ ТУТ ИСПРАВЛЕНИЕ ---
-        function setAuthUI(){
+
+        // --- УДАЛЕНЫ: getRemainingTodayClient, bumpClientCounter ---
+        
+
+        // ===== Баннер статуса (НОВАЯ ЛОГИКА) =====
+        async function setAuthUI(){
           const authBar = document.getElementById('auth-bar');
           if(!authBar) return;
           authBar.classList.remove('hidden');
@@ -263,9 +248,25 @@
                 <div class="text-sm">Войдите через приложение ОСО, чтобы загружать фото.</div>
             `;
             if(label){ label.style.pointerEvents='none'; label.style.opacity='0.5'; }
-          }else{
-            const left = getRemainingTodayClient();
-            // Добавил <br> и немного line-height
+          } else {
+            // Если авторизован, идем на сервер за лимитом
+            let left = '...'; // Заглушка на время загрузки
+            try {
+              // credentials: 'include' ОБЯЗАТЕЛЬНО, чтобы отправить cookie (vk_user_id)
+              const response = await fetch('/api/get-limit', { credentials: 'include' });
+              if (response.ok) {
+                const data = await response.json();
+                left = data.remaining;
+              } else {
+                console.warn("Не удалось загрузить лимит");
+                left = 'N/A'; // Ошибка сервера
+              }
+            } catch (e) {
+              console.error("Ошибка fetch лимита:", e);
+              left = 'N/A'; // Ошибка сети
+            }
+            
+            // Вставляем лимит в UI
             authBar.innerHTML = `
                 <div class="text-lg" style="flex-shrink: 0;">✅</div>
                 <div class="text-sm" style="line-height: 1.6;">
@@ -276,16 +277,17 @@
             if(label){ label.style.pointerEvents='auto'; label.style.opacity='1'; }
           }
         }
+        // Сразу запускаем проверку
         setAuthUI();
 
-        // ===== WebView детект и WEB-реклама =====
+        // ===== WebView детект и WEB-реклама (без изменений) =====
         function isWebView(){
           const ua = navigator.userAgent || '';
           return /\bwv\b/i.test(ua);
         }
         function showInterstitialAd(){
           if(!YANDEX_WEB_BLOCK_ID) return;
-          if(isWebView()) return;
+          if(isWebView()) return; 
           const overlay = document.getElementById('ad-overlay');
           const closeBtn = document.getElementById('ad-close');
           if(!overlay) return;
@@ -303,8 +305,8 @@
           });
         }
         
-        // ===== Логика загрузки (исправленная) =====
-        let pendingBase64Data = null; // Глобальная переменная для СТРОКИ Base64
+        // ===== Логика загрузки (без изменений) =====
+        let pendingBase64Data = null; 
 
         imageUpload.addEventListener('change', async (e) => {
             const file = e.target.files?.[0];
@@ -348,6 +350,7 @@
             }
         });
         
+        // ===== runAnalysisFromNative (НОВАЯ ЛОГИКА) =====
         async function runAnalysisFromNative() {
             const base64Data = window.pendingBase64Data; 
             if (!base64Data) {
@@ -357,23 +360,40 @@
 
             loaderSection.style.display = 'block';
             loaderSection.classList.remove('hidden');
-            
             showInterstitialAd(); 
 
             try {
-                const text = await callBackendApi(BACKEND_API_URL, { imageData: base64Data });
-                displayResults(text);
-                bumpClientCounter();
+                // 1. Вызываем API, он вернет { text: "...", remaining: X }
+                const resultJson = await callBackendApi(BACKEND_API_URL, { imageData: base64Data });
+                
+                // 2. Отображаем результат
+                displayResults(resultJson.text);
+                
+                // 3. Обновляем UI лимита
+                const remainingSpan = document.getElementById('rem-left');
+                if(remainingSpan && resultJson.remaining !== undefined) {
+                  remainingSpan.textContent = `${resultJson.remaining} / 5`;
+                }
+                
             } catch (error) {
+                // `error.message` придет от `callBackendApi` (уже содержит `result.error`)
                 console.error("Ошибка из callBackendApi:", error);
                 showError(error.message || 'Не удалось проанализировать фото');
+                
+                // Если ошибка - "Лимит", то ставим 0
+                if (error.message.includes("Лимит")) {
+                    const remainingSpan = document.getElementById('rem-left');
+                    if (remainingSpan) remainingSpan.textContent = '0 / 5';
+                }
             } finally {
+                // 4. Очищаем все
                 loaderSection.style.display = 'none';
                 loaderSection.classList.add('hidden');
                 window.pendingBase64Data = null;
                 imageUpload.value = ''; 
             }
         }
+
 
         btnNewPhoto?.addEventListener('click', resetToInitial);
 
@@ -410,21 +430,27 @@
             });
         }
 
+        // ===== callBackendApi (НОВАЯ ЛОГИКА) =====
         async function callBackendApi(url, payload, retries = 3, delay = 800) {
           for (let i = 0; i < retries; i++) {
             try {
               const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', 
+                credentials: 'include', // ОБЯЗАТЕЛЬНО для отправки cookie
                 body: JSON.stringify(payload)
               });
-              const result = await response.json();
+              
+              const result = await response.json(); // Читаем JSON
+              
               if (!response.ok) {
+                // Если сервер вернул ошибку (429, 500, 401), она будет в result.error
                 throw new Error(result.error || `Ошибка сервера: ${response.status}`);
               }
-              if (result?.text) return result.text;
-              throw new Error('Бэкенд вернул некорректный ответ.');
+              
+              // Если все ОК, сервер вернет { text: "...", remaining: X }
+              return result; // Возвращаем ВЕСЬ ОБЪЕКТ
+
             } catch (err) {
               if (i === retries - 1) throw err;
               await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
@@ -432,6 +458,7 @@
           }
         }
 
+        // ===== displayResults (без изменений) =====
         function displayResults(text) {
             const cleanedText = text.replace(/\*\*/g, '');
             let outfit = "Не удалось распознать.";
@@ -464,6 +491,7 @@
             resultsSection.classList.remove('hidden');
         }
 
+        // ===== displayStars (без изменений) =====
         function displayStars(rating) {
             stars.innerHTML = '';
             for (let i = 0; i < 10; i++) {
@@ -473,12 +501,14 @@
             }
         }
 
+        // ===== showError (без изменений) =====
         function showError(message) {
             errorText.textContent = message;
             errorSection.style.display = 'block';
             errorSection.classList.remove('hidden');
         }
 
+        // ===== resetUI (без изменений) =====
         function resetUI() {
             errorSection.classList.add('hidden');
             errorSection.style.display = 'none';
@@ -491,6 +521,7 @@
             stars.innerHTML = "";
         }
 
+        // ===== resetToInitial (без изменений) =====
         function resetToInitial() {
             resetUI();
             hintSection.classList.remove('hidden');
@@ -500,6 +531,10 @@
             loaderSection.style.display = 'none';
             imageUpload.value = '';
             window.pendingBase64Data = null; 
+            
+            // Запускаем обновление UI лимита, т.к. юзер мог 
+            // обновить лимит на другом устройстве
+            setAuthUI();
         }
     </script>
 </body>
