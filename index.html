@@ -14,11 +14,17 @@
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; background: #0a0a0a; color: #fff; overflow-x: hidden; }
 
-        /* ... (ВСЕ ТВОИ СТИЛИ ... ) ... */
+        /* Градиентный фон */
         .gradient-bg { position: fixed; top: 0; left: 0; right: 0; height: 300px;
             background: linear-gradient(180deg, #7c3aed 0%, #2563eb 50%, #0a0a0a 100%); z-index: 0; opacity: 0.8; }
+
+        /* Контейнер приложения */
         .app-container { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 40px; }
+
+        /* Хедер */
         .app-header { padding: 20px 20px 30px; }
+
+        /* Карточка загрузки */
         .upload-card { background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
             border-radius: 24px; padding: 40px 24px; text-align: center; box-shadow: 0 10px 40px rgba(124,58,237,.3);
             transition: transform .2s; cursor: pointer; position: relative; overflow: hidden; }
@@ -28,30 +34,50 @@
         .upload-card:active { transform: scale(.98); }
         .upload-icon { width:80px; height:80px; background: rgba(255,255,255,.2); border-radius:50%;
             display:flex; align-items:center; justify-content:center; margin:0 auto 20px; backdrop-filter: blur(10px); }
+
+        /* Превью карточка */
         .preview-card { background:#1a1a1a; border-radius:24px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,.5); }
         .preview-image { width:100%; aspect-ratio:3/4; object-fit:cover; }
+
+        /* Карточки результатов */
         .result-card { background:#1a1a1a; border-radius:20px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,.3); }
         .result-icon { width:48px; height:48px; background: linear-gradient(135deg,#7c3aed 0%,#2563eb 100%);
             border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+
+        /* Звёзды */
         .rating-stars { display:flex; gap:4px; }
         .star { width:24px; height:24px; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
             clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
         .star.empty { background:#2a2a2a; }
+
+        /* Кнопки */
         .btn-primary { background: linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); border:0; border-radius:16px; padding:18px;
             font-size:16px; font-weight:600; color:#fff; width:100%; cursor:pointer; transition: transform .2s, box-shadow .2s;
             box-shadow:0 4px 20px rgba(124,58,237,.4); }
         .btn-primary:active { transform: scale(.98); }
         .btn-secondary { background:#2a2a2a; border:0; border-radius:16px; padding:18px; font-size:16px; font-weight:600; color:#fff; width:100%; cursor:pointer; transition: transform .2s; }
         .btn-secondary:active { transform: scale(.98); background:#333; }
+
+        /* Лоадер */
         .loader { width:48px; height:48px; border:4px solid #2a2a2a; border-top:4px solid #7c3aed; border-radius:50%; animation: spin 1s linear infinite; margin:0 auto; }
         @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+
+        /* Hint / Banner */
         .hint { background: rgba(255,255,255,.1); backdrop-filter: blur(10px); border-radius:16px; padding:16px;
             font-size:14px; color: rgba(255,255,255,.8); display:flex; align-items:center; gap:12px; }
+
+        /* Анимации */
         @keyframes fadeIn { from{opacity:0; transform:translateY(20px)} to{opacity:1; transform:translateY(0)} }
         .fade-in { animation: fadeIn .4s ease-out; }
         .stagger-1 { animation-delay:.1s } .stagger-2 { animation-delay:.2s } .stagger-3 { animation-delay:.3s } .stagger-4 { animation-delay:.4s }
+
+        /* Скрытие input */
         #image-upload { display:none; }
+
+        /* Статус бар spacer */
         .status-bar-spacer { height: env(safe-area-inset-top); }
+
+        /* WEB-интерстициал */
         .ad-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:50}
         .ad-box{width:min(420px,92vw);min-height:280px;background:#111;border-radius:16px;padding:12px;position:relative}
         .ad-close{position:absolute;top:12px;right:16px;background:#222;border:0;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
@@ -177,7 +203,7 @@
     </div>
 
     <script>
-        // ===== DOM (как у тебя) =====
+        // ===== DOM =====
         const imageUpload = document.getElementById('image-upload');
         const hintSection = document.getElementById('hint-section');
         const uploadSection = document.getElementById('upload-section');
@@ -197,15 +223,15 @@
 
         // ===== Конфиг =====
         const BACKEND_API_URL = '/api/gemini';
-        const YANDEX_WEB_BLOCK_ID = 'R-A-XXXXXXX-1'; // (оставлен твой)
+        const YANDEX_WEB_BLOCK_ID = 'R-A-XXXXXXX-1';
 
-        // ===== Авторизация (только getCookie) =====
+        // ===== Авторизация =====
         function getCookie(name){
           return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1];
         }
         const vkToken = getCookie('vk_id_token');
-        
-        // ===== Баннер статуса (НОВАЯ ЛОГИКА) =====
+
+        // ===== Баннер статуса =====
         async function setAuthUI(){
           const authBar = document.getElementById('auth-bar');
           if(!authBar) return;
@@ -219,24 +245,18 @@
             `;
             if(label){ label.style.pointerEvents='none'; label.style.opacity='0.5'; }
           } else {
-            // Если авторизован, идем на сервер за лимитом
-            let left = '...'; // Заглушка на время загрузки
+            let left = '...';
             try {
-              // credentials: 'include' ОБЯЗАТЕЛЬНО, чтобы отправить cookie (vk_user_id)
               const response = await fetch('/api/get-limit', { credentials: 'include' });
               if (response.ok) {
                 const data = await response.json();
                 left = data.remaining;
               } else {
-                console.warn("Не удалось загрузить лимит");
-                left = 'N/A'; // Ошибка сервера
+                left = 'N/A';
               }
             } catch (e) {
-              console.error("Ошибка fetch лимита:", e);
-              left = 'N/A'; // Ошибка сети
+              left = 'N/A';
             }
-            
-            // Вставляем лимит в UI
             authBar.innerHTML = `
                 <div class="text-lg" style="flex-shrink: 0;">✅</div>
                 <div class="text-sm" style="line-height: 1.6;">
@@ -247,10 +267,9 @@
             if(label){ label.style.pointerEvents='auto'; label.style.opacity='1'; }
           }
         }
-        // Сразу запускаем проверку
         setAuthUI();
 
-        // ===== WebView детект и WEB-реклама (без изменений) =====
+        // ===== WebView детект и WEB-реклама =====
         function isWebView(){
           const ua = navigator.userAgent || '';
           return /\bwv\b/i.test(ua);
@@ -275,9 +294,7 @@
           });
         }
         
-        // ===== Логика загрузки (без изменений) =====
-        let pendingBase64Data = null; 
-
+        // ===== Логика загрузки =====
         imageUpload.addEventListener('change', async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -294,7 +311,7 @@
             }
 
             try {
-                resetUI(); // <-- Сброс тут (прячет старую ошибку)
+                resetUI();
                 showPreview(file); 
                 loaderSection.style.display = 'block';
                 loaderSection.classList.remove('hidden');
@@ -320,20 +337,11 @@
             }
         });
         
-        // ===== runAnalysisFromNative (НОВАЯ ЛОГИКА) =====
+        // ===== Анализ =====
         async function runAnalysisFromNative() {
-            
-            // --- ВОТ ЭТО ИСПРАВЛЕНИЕ ---
-            // Сначала очищаем экран от *возможных* старых ошибок,
-            // которые мог показать `imageUpload.addEventListener`
-            resetUI();
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-
             const base64Data = window.pendingBase64Data; 
             if (!base64Data) {
                 console.warn("Native app tried to start analysis, but no base64 data was pending.");
-                // Показываем превью, которое было, но с ошибкой
-                showError("Ошибка: Файл не найден после рекламы.");
                 return;
             }
 
@@ -342,30 +350,20 @@
             showInterstitialAd(); 
 
             try {
-                // 1. Вызываем API, он вернет { text: "...", remaining: X }
                 const resultJson = await callBackendApi(BACKEND_API_URL, { imageData: base64Data });
-                
-                // 2. Отображаем результат
                 displayResults(resultJson.text);
-                
-                // 3. Обновляем UI лимита
                 const remainingSpan = document.getElementById('rem-left');
                 if(remainingSpan && resultJson.remaining !== undefined) {
                   remainingSpan.textContent = `${resultJson.remaining} / 5`;
                 }
-                
             } catch (error) {
-                // `error.message` придет от `callBackendApi` (уже содержит `result.error`)
                 console.error("Ошибка из callBackendApi:", error);
                 showError(error.message || 'Не удалось проанализировать фото');
-                
-                // Если ошибка - "Лимит", то ставим 0
                 if (error.message.includes("Лимит")) {
                     const remainingSpan = document.getElementById('rem-left');
                     if (remainingSpan) remainingSpan.textContent = '0 / 5';
                 }
             } finally {
-                // 4. Очищаем все
                 loaderSection.style.display = 'none';
                 loaderSection.classList.add('hidden');
                 window.pendingBase64Data = null;
@@ -373,7 +371,7 @@
             }
         }
 
-
+        // ===== Новое фото =====
         btnNewPhoto?.addEventListener('click', resetToInitial);
 
         function showPreview(file) {
@@ -384,6 +382,9 @@
                 uploadSection.classList.add('hidden');
                 hintSection.classList.add('hidden');
                 previewSection.classList.remove('hidden');
+
+                // --- FIX: убираем левый «смайлик» под фото (если вёрстка/вебвью подкинула одиночный emoji-блок)
+                removeStrayEmojiAfter(previewSection);
             };
             reader.readAsDataURL(file);
         }
@@ -409,27 +410,20 @@
             });
         }
 
-        // ===== callBackendApi (НОВАЯ ЛОГИКА) =====
         async function callBackendApi(url, payload, retries = 3, delay = 800) {
           for (let i = 0; i < retries; i++) {
             try {
               const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', // ОБЯЗАТЕЛЬНО для отправки cookie
+                credentials: 'include',
                 body: JSON.stringify(payload)
               });
-              
-              const result = await response.json(); // Читаем JSON
-              
+              const result = await response.json();
               if (!response.ok) {
-                // Если сервер вернул ошибку (429, 500, 401), она будет в result.error
                 throw new Error(result.error || `Ошибка сервера: ${response.status}`);
               }
-              
-              // Если все ОК, сервер вернет { text: "...", remaining: X }
-              return result; // Возвращаем ВЕСЬ ОБЪЕКТ
-
+              return result;
             } catch (err) {
               if (i === retries - 1) throw err;
               await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
@@ -437,14 +431,8 @@
           }
         }
 
-        // ===== displayResults (без изменений) =====
+        // ===== Рендер результатов =====
         function displayResults(text) {
-            // Добавим проверку на пустой текст на всякий случай
-            if (!text) {
-                showError("Gemini вернул пустой ответ.");
-                return;
-            }
-            
             const cleanedText = text.replace(/\*\*/g, '');
             let outfit = "Не удалось распознать.";
             let style = "Не удалось распознать.";
@@ -476,7 +464,6 @@
             resultsSection.classList.remove('hidden');
         }
 
-        // ===== displayStars (без изменений) =====
         function displayStars(rating) {
             stars.innerHTML = '';
             for (let i = 0; i < 10; i++) {
@@ -486,14 +473,12 @@
             }
         }
 
-        // ===== showError (без изменений) =====
         function showError(message) {
             errorText.textContent = message;
             errorSection.style.display = 'block';
             errorSection.classList.remove('hidden');
         }
 
-        // ===== resetUI (без изменений) =====
         function resetUI() {
             errorSection.classList.add('hidden');
             errorSection.style.display = 'none';
@@ -506,7 +491,6 @@
             stars.innerHTML = "";
         }
 
-        // ===== resetToInitial (без изменений) =====
         function resetToInitial() {
             resetUI();
             hintSection.classList.remove('hidden');
@@ -516,9 +500,28 @@
             loaderSection.style.display = 'none';
             imageUpload.value = '';
             window.pendingBase64Data = null; 
-            
-            // Запускаем обновление UI лимита
             setAuthUI();
+
+            // На всякий случай подчистим и тут
+            removeStrayEmojiAfter(previewSection);
+        }
+
+        // ===== FIX helper =====
+        // Удаляет «висящий» узел, который состоит только из 1–2 emoji (без текста) и
+        // зачем-то появляется сразу после блока превью в некоторых вебвью.
+        function removeStrayEmojiAfter(anchorEl){
+          if(!anchorEl) return;
+          let el = anchorEl.nextElementSibling;
+          // Пропускаем скрытые блоки loader/results, нам нужен ровно лишний одиночный «вставыш»
+          if (!el || el.id === 'loader-section' || el.id === 'results-section') return;
+
+          const txt = (el.textContent || '').trim();
+          const hasLetters = /[A-Za-zА-Яа-я0-9]/.test(txt);
+          const hasEmoji = /\p{Extended_Pictographic}/u.test(txt);
+
+          if (el.children.length === 0 && !hasLetters && hasEmoji && txt.length <= 3) {
+            el.remove(); // прибили лишний смайл
+          }
         }
     </script>
 </body>
