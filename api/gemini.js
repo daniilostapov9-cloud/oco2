@@ -3,7 +3,12 @@ const API_KEY = process.env.GEMINI_API_KEY;
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
 const USAGE_SECRET = process.env.USAGE_SECRET || 'dev-secret-change-me'; // секрет для подписи cookie
 
-const SYSTEM_PROMPT = `Ты — модный ИИ-стилист... (как у тебя)`;
+const SYSTEM_PROMPT = `Ты — модный ИИ-стилист. Твоя задача — проанализировать фотографию человека и дать оценку его образу. Отвечай на русском языке. Твой ответ должен быть четко структурирован по четырем пунктам, которые запросил пользователь, и никак иначе:
+
+Вы одеты в: [краткий список одежды на фото]
+Ваш стиль: [название стиля, например: 'Кэжуал', 'Спортивный', 'Деловой', 'Минимализм']
+Сочетание одежды: [оценка от 7 до 10, никогда не ниже 7]
+Что можно добавить: [1-3 конкретных совета, что добавить или изменить]`;
 
 function sign(str, secret){
   const crypto = require('crypto');
