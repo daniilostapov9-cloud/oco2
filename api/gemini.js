@@ -1,93 +1,103 @@
-// Это бэкенд-функция Vercel (Node.js)
-// Имя файла /api/gemini.js означает, что он будет доступен по адресу /api/gemini
-
-// 1. Секретный ключ берется из переменных окружения Vercel
-const API_KEY = process.env.GEMINI_API_KEY; 
+// /api/gemini.js
+const API_KEY = process.env.GEMINI_API_KEY;
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
+const USAGE_SECRET = process.env.USAGE_SECRET || 'dev-secret-change-me'; // секрет для подписи cookie
 
-// 2. Промпт теперь живет на бэкенде
-const SYSTEM_PROMPT = `Ты — модный ИИ-стилист. Твоя задача — проанализировать фотографию человека и дать оценку его образу. Отвечай на русском языке. Твой ответ должен быть четко структурирован по четырем пунктам, которые запросил пользователь, и никак иначе:
+const SYSTEM_PROMPT = `Ты — модный ИИ-стилист... (как у тебя)`;
 
-Вы одеты в: [краткий список одежды на фото]
-Ваш стиль: [название стиля, например: 'Кэжуал', 'Спортивный', 'Деловой', 'Минимализм']
-Сочетание одежды: [оценка от 7 до 10, никогда не ниже 7]
-Что можно добавить: [1-3 конкретных совета, что добавить или изменить]`;
+function sign(str, secret){
+  const crypto = require('crypto');
+  return crypto.createHmac('sha256', secret).update(str).digest('hex');
+}
+function parseCookies(req){
+  const header = req.headers.cookie || '';
+  return Object.fromEntries(header.split(';').map(v=>v.trim().split('=').map(decodeURIComponent)).filter(p=>p[0]));
+}
+function getToday(){ return new Date().toISOString().slice(0,10); }
 
-// 3. Копируем твою же функцию callGeminiWithRetry сюда, на бэкенд
-async function callGeminiWithRetry(url, payload, retries = 3, delay = 1000) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            // fetch() доступен в Node.js на Vercel
-            const response = await fetch(`${url}?key=${API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errorBody = await response.text();
-                throw new Error(`Google API error! status: ${response.status}, body: ${errorBody}`);
-            }
-
-            const result = await response.json();
-
-            if (result.candidates && result.candidates[0]?.content?.parts?.[0]) {
-                return result.candidates[0].content.parts[0].text;
-            } else {
-                console.warn('Google API returned unexpected structure:', result);
-                throw new Error('Не удалось получить анализ от ИИ (Google).');
-            }
-        } catch (error) {
-            console.warn(`Попытка ${i + 1} не удалась: ${error.message}`);
-            if (i === retries - 1) throw error;
-            await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
-        }
-    }
-    throw new Error('Не удалось подключиться к Google API после нескольких попыток.');
+// простая подписанная кука вида: base64(json).hexsig
+function readSignedUsage(req){
+  const cookies = parseCookies(req);
+  const raw = cookies['oso_usage'];
+  if(!raw) return null;
+  const [b64, sig] = raw.split('.');
+  if(!b64 || !sig) return null;
+  const ok = sign(b64, USAGE_SECRET) === sig;
+  if(!ok) return null;
+  try{ return JSON.parse(Buffer.from(b64, 'base64url').toString('utf8')); }
+  catch{ return null; }
+}
+function writeSignedUsage(res, data){
+  const b64 = Buffer.from(JSON.stringify(data)).toString('base64url');
+  const sig = sign(b64, USAGE_SECRET);
+  const cookie = `oso_usage=${b64}.${sig}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60*60*24*7}`;
+  res.setHeader('Set-Cookie', cookie);
 }
 
-// 4. Основная функция-обработчик Vercel
-export default async function handler(request, response) {
-    // Принимаем только POST запросы
-    if (request.method !== 'POST') {
-        return response.status(405).json({ error: 'Method Not Allowed' });
+async function callGeminiWithRetry(url, payload, retries=3, delay=1000){
+  for(let i=0;i<retries;i++){
+    try{
+      const response = await fetch(`${url}?key=${API_KEY}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if(!response.ok){
+        const body = await response.text();
+        throw new Error(`Google API error ${response.status}: ${body}`);
+      }
+      const result = await response.json();
+      const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(!text) throw new Error('Пустой ответ от Google.');
+      return text;
+    }catch(err){
+      if(i===retries-1) throw err;
+      await new Promise(r=>setTimeout(r, delay*Math.pow(2,i)));
     }
+  }
+}
 
-    try {
-        // 5. Получаем base64-строку картинки из тела запроса от фронтенда
-        const { imageData } = request.body;
-        if (!imageData) {
-            return response.status(400).json({ error: 'Картинка не получена (imageData is missing)' });
-        }
+export default async function handler(req, res){
+  if(req.method !== 'POST') return res.status(405).json({error:'Method Not Allowed'});
 
-        // 6. Готовим payload для Google
-        const payload = {
-            contents: [{
-                role: "user",
-                parts: [
-                    { text: "Проанализируй одежду на этом фото." },
-                    {
-                        inlineData: {
-                            mimeType: "image/jpeg",
-                            data: imageData
-                        }
-                    }
-                ]
-            }],
-            systemInstruction: {
-                parts: [{ text: SYSTEM_PROMPT }]
-            }
-        };
+  // 1) Авторизация: нужна кука vk_id_token (ставит Android-приложение)
+  const cookies = parseCookies(req);
+  const vkToken = cookies['vk_id_token'];
+  if(!vkToken){
+    return res.status(401).json({ error: 'Требуется авторизация через приложение ОСО' });
+  }
 
-        // 7. Делаем запрос в Google (уже с бэкенда)
-        const analysisText = await callGeminiWithRetry(API_URL, payload);
+  // 2) Лимит 5/день — серверная проверка/обновление
+  const usage = readSignedUsage(req) || { date: getToday(), count: 0 };
+  if(usage.date !== getToday()){ usage.date = getToday(); usage.count = 0; }
+  if(usage.count >= 5){
+    writeSignedUsage(res, usage);
+    return res.status(429).json({ error: 'Лимит 5 анализов в день исчерпан. Попробуй завтра.' });
+  }
 
-        // 8. Отправляем чистый текст обратно на фронтенд
-        return response.status(200).json({ text: analysisText });
+  try{
+    const { imageData } = req.body || {};
+    if(!imageData) return res.status(400).json({ error:'Картинка не получена (imageData missing)' });
 
-    } catch (error) {
-        console.error('Ошибка на бэкенде (/api/gemini):', error.message);
-        // 9. Отправляем ошибку на фронтенд
-        return response.status(500).json({ error: `Ошибка сервера: ${error.message}` });
-    }
+    const payload = {
+      contents: [{
+        role: "user",
+        parts: [
+          { text: "Проанализируй одежду на этом фото." },
+          { inlineData: { mimeType: "image/jpeg", data: imageData } }
+        ]
+      }],
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }
+    };
+
+    const analysisText = await callGeminiWithRetry(API_URL, payload);
+
+    // Успешно — увеличиваем счётчик и возвращаем ответ
+    usage.count += 1;
+    writeSignedUsage(res, usage);
+    return res.status(200).json({ text: analysisText });
+
+  }catch(err){
+    console.error('Ошибка /api/gemini:', err);
+    return res.status(500).json({ error: `Ошибка сервера: ${err.message}` });
+  }
 }
