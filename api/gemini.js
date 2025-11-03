@@ -1,4 +1,5 @@
 // /api/gemini.js
+export const config = { runtime: 'nodejs' }; // без версии!
 import { sql } from "@vercel/postgres";
 
 const API_KEY = process.env.GEMINI_API_KEY;
