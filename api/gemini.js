@@ -1,8 +1,14 @@
 // /api/gemini.js
+
+// 1. Импорт для работы с БД
+import { sql } from "@vercel/postgres";
+
+// 2. Константы (Gemini и наш лимит)
 const API_KEY = process.env.GEMINI_API_KEY;
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
-const USAGE_SECRET = process.env.USAGE_SECRET || 'dev-secret-change-me'; // секрет для подписи cookie
+const DAILY_LIMIT = 5; // Наш лимит
 
+// 3. Системный промпт (твой)
 const SYSTEM_PROMPT = `Ты — модный ИИ-стилист. Твоя задача — проанализировать фотографию человека и дать оценку его образу. Отвечай на русском языке. Твой ответ должен быть четко структурирован по четырем пунктам, которые запросил пользователь, и никак иначе:
 
 Вы одеты в: [краткий список одежды на фото]
@@ -10,34 +16,17 @@ const SYSTEM_PROMPT = `Ты — модный ИИ-стилист. Твоя за�
 Сочетание одежды: [оценка от 7 до 10, никогда не ниже 7]
 Что можно добавить: [1-3 конкретных совета, что добавить или изменить]`;
 
-function sign(str, secret){
-  const crypto = require('crypto');
-  return crypto.createHmac('sha256', secret).update(str).digest('hex');
-}
+
+// 4. Вспомогательные функции (старые)
+//    УДАЛЕНЫ: sign, readSignedUsage, writeSignedUsage
+//    ОСТАВЛЕНЫ: parseCookies, getToday, callGeminiWithRetry
+
 function parseCookies(req){
   const header = req.headers.cookie || '';
   return Object.fromEntries(header.split(';').map(v=>v.trim().split('=').map(decodeURIComponent)).filter(p=>p[0]));
 }
-function getToday(){ return new Date().toISOString().slice(0,10); }
 
-// простая подписанная кука вида: base64(json).hexsig
-function readSignedUsage(req){
-  const cookies = parseCookies(req);
-  const raw = cookies['oso_usage'];
-  if(!raw) return null;
-  const [b64, sig] = raw.split('.');
-  if(!b64 || !sig) return null;
-  const ok = sign(b64, USAGE_SECRET) === sig;
-  if(!ok) return null;
-  try{ return JSON.parse(Buffer.from(b64, 'base64url').toString('utf8')); }
-  catch{ return null; }
-}
-function writeSignedUsage(res, data){
-  const b64 = Buffer.from(JSON.stringify(data)).toString('base64url');
-  const sig = sign(b64, USAGE_SECRET);
-  const cookie = `oso_usage=${b64}.${sig}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60*60*24*7}`;
-  res.setHeader('Set-Cookie', cookie);
-}
+function getToday(){ return new Date().toISOString().slice(0,10); }
 
 async function callGeminiWithRetry(url, payload, retries=3, delay=1000){
   for(let i=0;i<retries;i++){
@@ -61,34 +50,69 @@ async function callGeminiWithRetry(url, payload, retries=3, delay=1000){
   }
 }
 
+// 5. Главный обработчик (полностью обновлен)
 export default async function handler(req, res){
   if(req.method !== 'POST') return res.status(405).json({error:'Method Not Allowed'});
 
-  // 1) Авторизация: нужна кука vk_id_token (ставит Android-приложение)
+  // --- ШАГ 1: АВТОРИЗАЦИЯ ---
+  // Получаем ДВЕ куки, которые ставит MainActivity.kt
   const cookies = parseCookies(req);
-  const vkToken = cookies['vk_id_token'];
-  if(!vkToken){
+  const vkToken = cookies['vk_id_token']; // Проверка, что юзер вошел
+  const vkUserId = cookies['vk_user_id']; // ID юзера для БД
+
+  if(!vkToken || !vkUserId){
     return res.status(401).json({ error: 'Требуется авторизация через приложение ОСО' });
   }
 
-  // 2) Лимит 5/день — серверная проверка/обновление
-  const usage = readSignedUsage(req) || { date: getToday(), count: 0 };
-  if(usage.date !== getToday()){ usage.date = getToday(); usage.count = 0; }
-  if(usage.count >= 5){
-    writeSignedUsage(res, usage);
-    return res.status(429).json({ error: 'Лимит 5 анализов в день исчерпан. Попробуй завтра.' });
-  }
+  // --- ШАГ 2: ПРОВЕРКА ЛИМИТА В БАЗЕ ДАННЫХ ---
+  const today = getToday();
+  let currentCount = 0;
 
+  try {
+    const { rows } = await sql`
+      SELECT daily_count, last_used_date FROM user_limits 
+      WHERE vk_user_id = ${vkUserId}
+    `;
+    
+    const userLimit = rows[0];
+
+    if (!userLimit) {
+      // Юзера нет в БД, это его первый запрос
+      currentCount = 0;
+    } else if (userLimit.last_used_date !== today) {
+      // Юзер есть, но дата старая = новый день, сбрасываем
+      currentCount = 0;
+    } else {
+      // Юзер есть, дата = сегодня, берем его счетчик
+      currentCount = userLimit.daily_count;
+    }
+    
+    // Проверяем лимит
+    if (currentCount >= DAILY_LIMIT) {
+      return res.status(429).json({ 
+        error: `Лимит ${DAILY_LIMIT} анализов в день исчерпан. Попробуй завтра.`,
+        remaining: 0 // Доп. инфо для UI
+      });
+    }
+
+  } catch (dbError) {
+    console.error('Ошибка проверки лимита в БД:', dbError);
+    return res.status(500).json({ error: `Ошибка сервера (БД): ${dbError.message}` });
+  }
+  
+  // --- ШАГ 3: ВСЕ ОК, ЗАПУСКАЕМ GEMINI ---
   try{
-    const { imageData } = req.body || {};
-    if(!imageData) return res.status(400).json({ error:'Картинка не получена (imageData missing)' });
+    // (Этот код берет картинку из req.body, как и раньше)
+    const { imageData, image } = req.body || {};
+    const b64Data = imageData || image;
+    if(!b64Data) return res.status(400).json({ error:'Картинка не получена (imageData missing)' });
 
     const payload = {
       contents: [{
         role: "user",
         parts: [
           { text: "Проанализируй одежду на этом фото." },
-          { inlineData: { mimeType: "image/jpeg", data: imageData } }
+          { inlineData: { mimeType: "image/jpeg", data: b64Data } }
         ]
       }],
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }
@@ -96,13 +120,27 @@ export default async function handler(req, res){
 
     const analysisText = await callGeminiWithRetry(API_URL, payload);
 
-    // Успешно — увеличиваем счётчик и возвращаем ответ
-    usage.count += 1;
-    writeSignedUsage(res, usage);
-    return res.status(200).json({ text: analysisText });
+    // --- ШАГ 4: УСПЕХ. УВЕЛИЧИВАЕМ СЧЕТЧИК В БД ---
+    const newCount = currentCount + 1;
+    
+    await sql`
+      INSERT INTO user_limits (vk_user_id, daily_count, last_used_date)
+      VALUES (${vkUserId}, ${newCount}, ${today})
+      ON CONFLICT (vk_user_id) 
+      DO UPDATE SET
+        daily_count = ${newCount},
+        last_used_date = ${today};
+    `;
+
+    // --- ШАГ 5: ОТДАЕМ РЕЗУЛЬТАТ ---
+    return res.status(200).json({ 
+      text: analysisText,
+      remaining: DAILY_LIMIT - newCount // Отправляем остаток для UI
+    });
 
   }catch(err){
-    console.error('Ошибка /api/gemini:', err);
+    // Это `catch` для ошибок Gemini или Шага 4 (обновление БД)
+    console.error('Ошибка /api/gemini (Gemini или DB Update):', err);
     return res.status(500).json({ error: `Ошибка сервера: ${err.message}` });
   }
 }
