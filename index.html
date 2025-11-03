@@ -14,17 +14,11 @@
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; background: #0a0a0a; color: #fff; overflow-x: hidden; }
 
-        /* Градиентный фон */
+        /* ... (ВСЕ ТВОИ СТИЛИ ... ) ... */
         .gradient-bg { position: fixed; top: 0; left: 0; right: 0; height: 300px;
             background: linear-gradient(180deg, #7c3aed 0%, #2563eb 50%, #0a0a0a 100%); z-index: 0; opacity: 0.8; }
-
-        /* Контейнер приложения */
         .app-container { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 40px; }
-
-        /* Хедер */
         .app-header { padding: 20px 20px 30px; }
-
-        /* Карточка загрузки */
         .upload-card { background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
             border-radius: 24px; padding: 40px 24px; text-align: center; box-shadow: 0 10px 40px rgba(124,58,237,.3);
             transition: transform .2s; cursor: pointer; position: relative; overflow: hidden; }
@@ -34,50 +28,30 @@
         .upload-card:active { transform: scale(.98); }
         .upload-icon { width:80px; height:80px; background: rgba(255,255,255,.2); border-radius:50%;
             display:flex; align-items:center; justify-content:center; margin:0 auto 20px; backdrop-filter: blur(10px); }
-
-        /* Превью карточка */
         .preview-card { background:#1a1a1a; border-radius:24px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,.5); }
         .preview-image { width:100%; aspect-ratio:3/4; object-fit:cover; }
-
-        /* Карточки результатов */
         .result-card { background:#1a1a1a; border-radius:20px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,.3); }
         .result-icon { width:48px; height:48px; background: linear-gradient(135deg,#7c3aed 0%,#2563eb 100%);
             border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
-
-        /* Звёзды */
         .rating-stars { display:flex; gap:4px; }
         .star { width:24px; height:24px; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
             clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
         .star.empty { background:#2a2a2a; }
-
-        /* Кнопки */
         .btn-primary { background: linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); border:0; border-radius:16px; padding:18px;
             font-size:16px; font-weight:600; color:#fff; width:100%; cursor:pointer; transition: transform .2s, box-shadow .2s;
             box-shadow:0 4px 20px rgba(124,58,237,.4); }
         .btn-primary:active { transform: scale(.98); }
         .btn-secondary { background:#2a2a2a; border:0; border-radius:16px; padding:18px; font-size:16px; font-weight:600; color:#fff; width:100%; cursor:pointer; transition: transform .2s; }
         .btn-secondary:active { transform: scale(.98); background:#333; }
-
-        /* Лоадер */
         .loader { width:48px; height:48px; border:4px solid #2a2a2a; border-top:4px solid #7c3aed; border-radius:50%; animation: spin 1s linear infinite; margin:0 auto; }
         @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-
-        /* Hint / Banner */
         .hint { background: rgba(255,255,255,.1); backdrop-filter: blur(10px); border-radius:16px; padding:16px;
             font-size:14px; color: rgba(255,255,255,.8); display:flex; align-items:center; gap:12px; }
-
-        /* Анимации */
         @keyframes fadeIn { from{opacity:0; transform:translateY(20px)} to{opacity:1; transform:translateY(0)} }
         .fade-in { animation: fadeIn .4s ease-out; }
         .stagger-1 { animation-delay:.1s } .stagger-2 { animation-delay:.2s } .stagger-3 { animation-delay:.3s } .stagger-4 { animation-delay:.4s }
-
-        /* Скрытие input */
         #image-upload { display:none; }
-
-        /* Статус бар spacer */
         .status-bar-spacer { height: env(safe-area-inset-top); }
-
-        /* WEB-интерстициал */
         .ad-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:50}
         .ad-box{width:min(420px,92vw);min-height:280px;background:#111;border-radius:16px;padding:12px;position:relative}
         .ad-close{position:absolute;top:12px;right:16px;background:#222;border:0;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
@@ -231,10 +205,6 @@
         }
         const vkToken = getCookie('vk_id_token');
         
-
-        // --- УДАЛЕНЫ: getRemainingTodayClient, bumpClientCounter ---
-        
-
         // ===== Баннер статуса (НОВАЯ ЛОГИКА) =====
         async function setAuthUI(){
           const authBar = document.getElementById('auth-bar');
@@ -324,7 +294,7 @@
             }
 
             try {
-                resetUI();
+                resetUI(); // <-- Сброс тут (прячет старую ошибку)
                 showPreview(file); 
                 loaderSection.style.display = 'block';
                 loaderSection.classList.remove('hidden');
@@ -352,9 +322,18 @@
         
         // ===== runAnalysisFromNative (НОВАЯ ЛОГИКА) =====
         async function runAnalysisFromNative() {
+            
+            // --- ВОТ ЭТО ИСПРАВЛЕНИЕ ---
+            // Сначала очищаем экран от *возможных* старых ошибок,
+            // которые мог показать `imageUpload.addEventListener`
+            resetUI();
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
             const base64Data = window.pendingBase64Data; 
             if (!base64Data) {
                 console.warn("Native app tried to start analysis, but no base64 data was pending.");
+                // Показываем превью, которое было, но с ошибкой
+                showError("Ошибка: Файл не найден после рекламы.");
                 return;
             }
 
@@ -460,6 +439,12 @@
 
         // ===== displayResults (без изменений) =====
         function displayResults(text) {
+            // Добавим проверку на пустой текст на всякий случай
+            if (!text) {
+                showError("Gemini вернул пустой ответ.");
+                return;
+            }
+            
             const cleanedText = text.replace(/\*\*/g, '');
             let outfit = "Не удалось распознать.";
             let style = "Не удалось распознать.";
@@ -532,8 +517,7 @@
             imageUpload.value = '';
             window.pendingBase64Data = null; 
             
-            // Запускаем обновление UI лимита, т.к. юзер мог 
-            // обновить лимит на другом устройстве
+            // Запускаем обновление UI лимита
             setAuthUI();
         }
     </script>
