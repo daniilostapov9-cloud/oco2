@@ -1,6 +1,7 @@
 // /api/gemini.js
 
 // 1. Импорт для работы с БД
+export const config = { runtime: 'nodejs' }; // без версии!
 import { sql } from "@vercel/postgres";
 
 // 2. Константы (Gemini и наш лимит)
