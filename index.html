@@ -1,495 +1,486 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>ОСО - Оцени свою одежду</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; background: #0a0a0a; color: #fff; overflow-x: hidden; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>ОСО - Оцени свою одежду</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; background:#0a0a0a; color:#fff; overflow-x:hidden; }
 
-        /* ... (ВСЕ ТВОИ СТИЛИ ... ) ... */
-        .gradient-bg { position: fixed; top: 0; left: 0; right: 0; height: 300px;
-            background: linear-gradient(180deg, #7c3aed 0%, #2563eb 50%, #0a0a0a 100%); z-index: 0; opacity: 0.8; }
-        .app-container { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 40px; }
-        .app-header { padding: 20px 20px 30px; }
-        .upload-card { background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
-            border-radius: 24px; padding: 40px 24px; text-align: center; box-shadow: 0 10px 40px rgba(124,58,237,.3);
-            transition: transform .2s; cursor: pointer; position: relative; overflow: hidden; }
-        .upload-card::before { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
-            background: radial-gradient(circle, rgba(255,255,255,.1) 0%, transparent 70%); animation: rotate 10s linear infinite; }
-        @keyframes rotate { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-        .upload-card:active { transform: scale(.98); }
-        .upload-icon { width:80px; height:80px; background: rgba(255,255,255,.2); border-radius:50%;
-            display:flex; align-items:center; justify-content:center; margin:0 auto 20px; backdrop-filter: blur(10px); }
-        .preview-card { background:#1a1a1a; border-radius:24px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,.5); }
-        .preview-image { width:100%; aspect-ratio:3/4; object-fit:cover; }
-        .result-card { background:#1a1a1a; border-radius:20px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,.3); }
-        .result-icon { width:48px; height:48px; background: linear-gradient(135deg,#7c3aed 0%,#2563eb 100%);
-            border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
-        .rating-stars { display:flex; gap:4px; }
-        .star { width:24px; height:24px; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-            clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
-        .star.empty { background:#2a2a2a; }
-        .btn-primary { background: linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); border:0; border-radius:16px; padding:18px;
-            font-size:16px; font-weight:600; color:#fff; width:100%; cursor:pointer; transition: transform .2s, box-shadow .2s;
-            box-shadow:0 4px 20px rgba(124,58,237,.4); }
-        .btn-primary:active { transform: scale(.98); }
-        .btn-secondary { background:#2a2a2a; border:0; border-radius:16px; padding:18px; font-size:16px; font-weight:600; color:#fff; width:100%; cursor:pointer; transition: transform .2s; }
-        .btn-secondary:active { transform: scale(.98); background:#333; }
-        .loader { width:48px; height:48px; border:4px solid #2a2a2a; border-top:4px solid #7c3aed; border-radius:50%; animation: spin 1s linear infinite; margin:0 auto; }
-        @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-        .hint { background: rgba(255,255,255,.1); backdrop-filter: blur(10px); border-radius:16px; padding:16px;
-            font-size:14px; color: rgba(255,255,255,.8); display:flex; align-items:center; gap:12px; }
-        @keyframes fadeIn { from{opacity:0; transform:translateY(20px)} to{opacity:1; transform:translateY(0)} }
-        .fade-in { animation: fadeIn .4s ease-out; }
-        .stagger-1 { animation-delay:.1s } .stagger-2 { animation-delay:.2s } .stagger-3 { animation-delay:.3s } .stagger-4 { animation-delay:.4s }
-        #image-upload { display:none; }
-        .status-bar-spacer { height: env(safe-area-inset-top); }
-        .ad-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:50}
-        .ad-box{width:min(420px,92vw);min-height:280px;background:#111;border-radius:16px;padding:12px;position:relative}
-        .ad-close{position:absolute;top:12px;right:16px;background:#222;border:0;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
-    </style>
+    .gradient-bg { position:fixed; top:0; left:0; right:0; height:300px;
+      background:linear-gradient(180deg,#7c3aed 0%,#2563eb 50%,#0a0a0a 100%); z-index:0; opacity:.8; }
+    .app-container { position:relative; z-index:1; min-height:100vh; padding-bottom:40px; }
+    .app-header { padding:20px 20px 30px; }
 
-    <script>
-      (function(w,d,n,s,t){w[n]=w[n]||[];t=d.getElementsByTagName("script")[0];
-        s=d.createElement("script");s.async=true;s.src="https://yandex.ru/ads/system/context.js";
-        t.parentNode.insertBefore(s,t);
-      })(window,document,"yandexContextAsyncCallbacks");
-    </script>
+    .upload-card { background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); border-radius:24px; padding:40px 24px;
+      text-align:center; box-shadow:0 10px 40px rgba(124,58,237,.3); transition:transform .2s; cursor:pointer; position:relative; overflow:hidden; }
+    .upload-card::before { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
+      background:radial-gradient(circle,rgba(255,255,255,.1) 0%,transparent 70%); animation:rotate 10s linear infinite; }
+    @keyframes rotate { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+    .upload-card:active { transform:scale(.98); }
+    .upload-icon { width:80px; height:80px; background:rgba(255,255,255,.2); border-radius:50%;
+      display:flex; align-items:center; justify-content:center; margin:0 auto 20px; backdrop-filter:blur(10px); }
+
+    .preview-card { background:#1a1a1a; border-radius:24px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,.5); }
+    .preview-image { width:100%; aspect-ratio:3/4; object-fit:cover; }
+
+    .result-card { background:#1a1a1a; border-radius:20px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,.3); }
+    .result-icon { width:48px; height:48px; background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); border-radius:12px;
+      display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+
+    .rating-stars { display:flex; gap:4px; }
+    .star { width:24px; height:24px; background:linear-gradient(135deg,#fbbf24 0%,#f59e0b 100%);
+      clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
+    .star.empty { background:#2a2a2a; }
+
+    .btn-primary { background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); border:0; border-radius:16px; padding:18px;
+      font-size:16px; font-weight:600; color:#fff; width:100%; cursor:pointer; transition:transform .2s,box-shadow .2s;
+      box-shadow:0 4px 20px rgba(124,58,237,.4); }
+    .btn-primary:active { transform:scale(.98); }
+    .btn-secondary { background:#2a2a2a; border:0; border-radius:16px; padding:18px; font-size:16px; font-weight:600; color:#fff; width:100%; cursor:pointer; transition:transform .2s; }
+    .btn-secondary:active { transform:scale(.98); background:#333; }
+
+    .loader { width:48px; height:48px; border:4px solid #2a2a2a; border-top:4px solid #7c3aed; border-radius:50%; animation:spin 1s linear infinite; margin:0 auto; }
+    @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+
+    .hint { background:rgba(255,255,255,.1); backdrop-filter:blur(10px); border-radius:16px; padding:16px;
+      font-size:14px; color:rgba(255,255,255,.8); display:flex; align-items:center; gap:12px; }
+
+    @keyframes fadeIn { from{opacity:0; transform:translateY(20px)} to{opacity:1; transform:translateY(0)} }
+    .fade-in { animation:fadeIn .4s ease-out; }
+    .stagger-1 { animation-delay:.1s } .stagger-2 { animation-delay:.2s } .stagger-3 { animation-delay:.3s } .stagger-4 { animation-delay:.4s }
+
+    #image-upload { display:none; }
+    .status-bar-spacer { height: env(safe-area-inset-top); }
+
+    .ad-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:50}
+    .ad-box{width:min(420px,92vw);min-height:280px;background:#111;border-radius:16px;padding:12px;position:relative}
+    .ad-close{position:absolute;top:12px;right:16px;background:#222;border:0;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+  </style>
+
+  <script>
+    (function(w,d,n,s,t){w[n]=w[n]||[];t=d.getElementsByTagName("script")[0];
+      s=d.createElement("script");s.async=true;s.src="https://yandex.ru/ads/system/context.js";
+      t.parentNode.insertBefore(s,t);
+    })(window,document,"yandexContextAsyncCallbacks");
+  </script>
 </head>
 <body>
-    <div class="gradient-bg"></div>
+  <div class="gradient-bg"></div>
 
-    <div id="ad-overlay" class="ad-overlay">
-      <div class="ad-box">
-        <button id="ad-close" class="ad-close">Закрыть ✖</button>
-        <div id="ya-rtb-interstitial"></div>
+  <div id="ad-overlay" class="ad-overlay">
+    <div class="ad-box">
+      <button id="ad-close" class="ad-close">Закрыть ✖</button>
+      <div id="ya-rtb-interstitial"></div>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <div class="status-bar-spacer"></div>
+
+    <header class="app-header">
+      <h1 class="text-3xl font-bold mb-2">ОСО</h1>
+      <p class="text-white/60 text-sm">Оцени свою одежду</p>
+    </header>
+
+    <main class="px-5">
+      <div id="auth-bar" class="hint mb-4 hidden"></div>
+
+      <div id="hint-section" class="hint mb-6">
+        <div class="text-2xl">💡</div>
+        <div class="text-sm">Загрузи фото в полный рост для точного анализа</div>
       </div>
-    </div>
 
-    <div class="app-container">
-        <div class="status-bar-spacer"></div>
-
-        <header class="app-header">
-            <h1 class="text-3xl font-bold mb-2">ОСО</h1>
-            <p class="text-white/60 text-sm">Оцени свою одежду</p>
-        </header>
-
-        <main class="px-5">
-
-            <div id="auth-bar" class="hint mb-4 hidden"></div>
-
-            <div id="hint-section" class="hint mb-6">
-                <div class="text-2xl">💡</div>
-                <div class="text-sm">Загрузи фото в полный рост для точного анализа</div>
+      <div id="upload-section">
+        <label for="image-upload">
+          <div class="upload-card">
+            <div class="upload-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
             </div>
+            <h3 class="text-xl font-semibold mb-2">Загрузить фото</h3>
+            <p class="text-white/80 text-sm">Нажми, чтобы выбрать</p>
+          </div>
+        </label>
+        <input type="file" id="image-upload" accept="image/*" />
+      </div>
 
-            <div id="upload-section">
-                <label for="image-upload">
-                    <div class="upload-card">
-                        <div class="upload-icon">
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
-                        </div>
-                        <h3 class="text-xl font-semibold mb-2">Загрузить фото</h3>
-                        <p class="text-white/80 text-sm">Нажми, чтобы выбрать</p>
-                    </div>
-                </label>
-                <input type="file" id="image-upload" accept="image/*">
+      <div id="preview-section" class="hidden mb-6">
+        <div class="preview-card">
+          <img id="preview-image" class="preview-image" src="" alt="Превью" style="display:none;" />
+        </div>
+      </div>
+
+      <div id="loader-section" class="hidden py-12 text-center" style="display:none;">
+        <div class="loader mb-4"></div>
+        <p class="text-white/60 text-sm">Анализирую твой стиль...</p>
+      </div>
+
+      <div id="results-section" class="hidden space-y-4" style="display:none;">
+        <div class="result-card fade-in">
+          <div class="flex gap-4">
+            <div class="result-icon">👔</div>
+            <div class="flex-1">
+              <h3 class="font-semibold mb-2">Твоя одежда</h3>
+              <p id="result-clothes" class="text-white/70 text-sm leading-relaxed"></p>
             </div>
+          </div>
+        </div>
 
-            <div id="preview-section" class="hidden mb-6">
-                <div class="preview-card">
-                    <img id="preview-image" class="preview-image" src="" alt="Превью" style="display: none;">
-                </div>
+        <div class="result-card fade-in stagger-1">
+          <div class="flex gap-4">
+            <div class="result-icon">✨</div>
+            <div class="flex-1">
+              <h3 class="font-semibold mb-2">Твой стиль</h3>
+              <p id="result-style" class="text-white/70 text-sm leading-relaxed"></p>
             </div>
+          </div>
+        </div>
 
-            <div id="loader-section" class="hidden py-12 text-center" style="display: none;">
-                <div class="loader mb-4"></div>
-                <p class="text-white/60 text-sm">Анализирую твой стиль...</p>
+        <div class="result-card fade-in stagger-2">
+          <div class="flex gap-4">
+            <div class="result-icon">⭐</div>
+            <div class="flex-1">
+              <h3 class="font-semibold mb-3">Оценка образа</h3>
+              <div class="rating-stars mb-2" id="stars"></div>
+              <p id="rating-text" class="text-white/70 text-sm"></p>
             </div>
+          </div>
+        </div>
 
-            <div id="results-section" class="hidden space-y-4" style="display: none;">
-                <div class="result-card fade-in">
-                    <div class="flex gap-4">
-                        <div class="result-icon">👔</div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold mb-2">Твоя одежда</h3>
-                            <p id="result-clothes" class="text-white/70 text-sm leading-relaxed"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="result-card fade-in stagger-1">
-                    <div class="flex gap-4">
-                        <div class="result-icon">✨</div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold mb-2">Твой стиль</h3>
-                            <p id="result-style" class="text-white/70 text-sm leading-relaxed"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="result-card fade-in stagger-2">
-                    <div class="flex gap-4">
-                        <div class="result-icon">⭐</div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold mb-2">Оценка образа</h3>
-                            <div class="rating-stars mb-2" id="stars" style="display: none;"></div> 
-                            <p id="rating-text" class="text-xl font-semibold text-white"></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="result-card fade-in stagger-3">
-                    <div class="flex gap-4">
-                        <div class="result-icon">💡</div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold mb-2">Советы стилиста</h3>
-                            <p id="result-suggestions" class="text-white/70 text-sm leading-relaxed"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <button id="btn-new-photo" class="btn-secondary fade-in stagger-4">
-                    Загрузить новое фото
-                </button>
+        <div class="result-card fade-in stagger-3">
+          <div class="flex gap-4">
+            <div class="result-icon">💡</div>
+            <div class="flex-1">
+              <h3 class="font-semibold mb-2">Советы стилиста</h3>
+              <p id="result-suggestions" class="text-white/70 text-sm leading-relaxed"></p>
             </div>
+          </div>
+        </div>
 
-            <div id="error-section" class="hidden">
-                <div class="result-card text-center">
-                    <div class="text-4xl mb-3">😕</div>
-                    <p id="error-text" class="text-red-400 text-sm"></p>
-                </div>
-            </div>
+        <button id="btn-new-photo" class="btn-secondary fade-in stagger-4">
+          Загрузить новое фото
+        </button>
+      </div>
 
-        </main>
-    </div>
+      <div id="error-section" class="hidden">
+        <div class="result-card text-center">
+          <div class="text-4xl mb-3">😕</div>
+          <p id="error-text" class="text-red-400 text-sm"></p>
+        </div>
+      </div>
+    </main>
+  </div>
 
-    <script>
-        // ===== DOM =====
-        const imageUpload = document.getElementById('image-upload');
-        const hintSection = document.getElementById('hint-section');
-        const uploadSection = document.getElementById('upload-section');
-        const previewSection = document.getElementById('preview-section');
-        const previewImage = document.getElementById('preview-image');
-        const loaderSection = document.getElementById('loader-section');
-        const resultsSection = document.getElementById('results-section');
-        const errorSection = document.getElementById('error-section');
-        const errorText = document.getElementById('error-text');
-        const btnNewPhoto = document.getElementById('btn-new-photo');
+  <script>
+    // ===== DOM
+    const imageUpload = document.getElementById('image-upload');
+    const hintSection = document.getElementById('hint-section');
+    const uploadSection = document.getElementById('upload-section');
+    const previewSection = document.getElementById('preview-section');
+    const previewImage = document.getElementById('preview-image');
+    const loaderSection = document.getElementById('loader-section');
+    const resultsSection = document.getElementById('results-section');
+    const errorSection = document.getElementById('error-section');
+    const errorText = document.getElementById('error-text');
+    const btnNewPhoto = document.getElementById('btn-new-photo');
 
-        const resultClothes = document.getElementById('result-clothes');
-        const resultStyle = document.getElementById('result-style');
-        const stars = document.getElementById('stars');
-        const ratingText = document.getElementById('rating-text');
-        const resultSuggestions = document.getElementById('result-suggestions');
+    const resultClothes = document.getElementById('result-clothes');
+    const resultStyle = document.getElementById('result-style');
+    const stars = document.getElementById('stars');
+    const ratingText = document.getElementById('rating-text');
+    const resultSuggestions = document.getElementById('result-suggestions');
 
-        // ===== Конфиг =====
-        const BACKEND_API_URL = '/api/gemini';
-        const YANDEX_WEB_BLOCK_ID = 'R-A-XXXXXXX-1';
+    // ===== Конфиг
+    const BACKEND_API_URL = '/api/gemini';
+    const YANDEX_WEB_BLOCK_ID = 'R-A-XXXXXXX-1';
 
-        // ===== Авторизация =====
-        function getCookie(name){
-          return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1];
+    // ===== Авторизация (cookie)
+    function getCookie(name){
+      return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1];
+    }
+    const vkToken = getCookie('vk_id_token');
+
+    async function setAuthUI(){
+      const authBar = document.getElementById('auth-bar');
+      if(!authBar) return;
+      authBar.classList.remove('hidden');
+      const label = document.querySelector('label[for="image-upload"]');
+
+      if(!vkToken){
+        authBar.innerHTML = `
+          <div class="text-lg" style="flex-shrink:0;">🔒</div>
+          <div class="text-sm">Войдите через приложение ОСО, чтобы загружать фото.</div>`;
+        if(label){ label.style.pointerEvents='none'; label.style.opacity='0.5'; }
+      }else{
+        let left='...';
+        try{
+          const resp = await fetch('/api/get-limit',{credentials:'include'});
+          if(resp.ok){ const data = await resp.json(); left = data.remaining; } else { left='N/A'; }
+        }catch{ left='N/A'; }
+        authBar.innerHTML = `
+          <div class="text-lg" style="flex-shrink:0;">✅</div>
+          <div class="text-sm" style="line-height:1.6;">
+            Авторизовано • <br>Осталось на сегодня: <b id="rem-left" class="text-white">${left} / 5</b>
+          </div>`;
+        if(label){ label.style.pointerEvents='auto'; label.style.opacity='1'; }
+      }
+    }
+    setAuthUI();
+
+    // ===== WebView / реклама
+    function isWebView(){ const ua = navigator.userAgent||''; return /\bwv\b/i.test(ua); }
+    function showInterstitialAd(){
+      if(!YANDEX_WEB_BLOCK_ID) return;
+      if(isWebView()) return;
+      const overlay = document.getElementById('ad-overlay');
+      const closeBtn = document.getElementById('ad-close');
+      if(!overlay) return;
+      overlay.style.display='flex';
+      if(closeBtn) closeBtn.onclick = ()=> overlay.style.display='none';
+      window.yandexContextAsyncCallbacks = window.yandexContextAsyncCallbacks || [];
+      window.yandexContextAsyncCallbacks.push(()=>{
+        try{
+          Ya.Context.AdvManager.render({ blockId: YANDEX_WEB_BLOCK_ID, renderTo:'ya-rtb-interstitial' });
+        }catch(e){ console.warn('Yandex Ads error',e); }
+      });
+    }
+
+    // ===== Загрузка изображения
+    imageUpload.addEventListener('change', async (e)=>{
+      const file = e.target.files?.[0];
+      if(!file) return;
+
+      if(!vkToken){
+        showError('Авторизация обязательна. Открой сайт через приложение ОСО.');
+        imageUpload.value = '';
+        return;
+      }
+      if(!file.type.startsWith('image/')){
+        showError('Пожалуйста, выбери изображение');
+        return;
+      }
+
+      try{
+        resetUI();
+        showPreview(file);
+        loaderSection.style.display='block';
+        loaderSection.classList.remove('hidden');
+
+        const base64Data = await resizeAndConvert(file);
+        window.pendingBase64Data = base64Data;
+
+        loaderSection.style.display='none';
+        loaderSection.classList.add('hidden');
+
+        window.location.href='/start-analysis';
+
+        if(!isWebView()){
+          runAnalysisFromNative();
         }
-        const vkToken = getCookie('vk_id_token');
+      }catch(err){
+        console.error('Ошибка при конвертации файла:',err);
+        showError(err.message || 'Не удалось обработать изображение');
+        loaderSection.style.display='none';
+        loaderSection.classList.add('hidden');
+        imageUpload.value='';
+      }
+    });
 
-        // ===== Баннер статуса =====
-        async function setAuthUI(){
-          const authBar = document.getElementById('auth-bar');
-          if(!authBar) return;
-          authBar.classList.remove('hidden');
-          const label = document.querySelector('label[for="image-upload"]');
-          
-          if(!vkToken){
-            authBar.innerHTML = `
-                <div class="text-lg" style="flex-shrink: 0;">🔒</div>
-                <div class="text-sm">Войдите через приложение ОСО, чтобы загружать фото.</div>
-            `;
-            if(label){ label.style.pointerEvents='none'; label.style.opacity='0.5'; }
-          } else {
-            let left = '...';
-            try {
-              const response = await fetch('/api/get-limit', { credentials: 'include' });
-              if (response.ok) {
-                const data = await response.json();
-                left = data.remaining;
-              } else {
-                left = 'N/A';
-              }
-            } catch (e) {
-              left = 'N/A';
-            }
-            authBar.innerHTML = `
-                <div class="text-lg" style="flex-shrink: 0;">✅</div>
-                <div class="text-sm" style="line-height: 1.6;">
-                    Авторизовано • <br>Осталось на сегодня: 
-                    <b id="rem-left" class="text-white">${left} / 5</b>
-                </div>
-            `;
-            if(label){ label.style.pointerEvents='auto'; label.style.opacity='1'; }
-          }
+    // ===== Анализ (веб)
+    async function runAnalysisFromNative(){
+      const base64Data = window.pendingBase64Data;
+      if(!base64Data) return;
+
+      loaderSection.style.display='block';
+      loaderSection.classList.remove('hidden');
+      showInterstitialAd();
+
+      try{
+        const resultJson = await callBackendApi(BACKEND_API_URL,{ imageData: base64Data });
+        displayResults(resultJson.text);
+        const remainingSpan = document.getElementById('rem-left');
+        if(remainingSpan && resultJson.remaining !== undefined){
+          remainingSpan.textContent = `${resultJson.remaining} / 5`;
         }
-        setAuthUI();
-
-        // ===== WebView детект и WEB-реклама =====
-        function isWebView(){
-          const ua = navigator.userAgent || '';
-          return /\bwv\b/i.test(ua);
+      }catch(err){
+        console.error('Ошибка из callBackendApi:',err);
+        showError(err.message || 'Не удалось проанализировать фото');
+        if (String(err.message).includes('Лимит')){
+          const remainingSpan = document.getElementById('rem-left');
+          if(remainingSpan) remainingSpan.textContent = '0 / 5';
         }
-        function showInterstitialAd(){
-          // ... (код без изменений)
+      }finally{
+        loaderSection.style.display='none';
+        loaderSection.classList.add('hidden');
+        window.pendingBase64Data = null;
+        imageUpload.value='';
+      }
+    }
+
+    // ===== Новое фото
+    btnNewPhoto?.addEventListener('click', resetToInitial);
+
+    function showPreview(file){
+      const reader = new FileReader();
+      reader.onload = (e)=>{
+        previewImage.src = e.target.result;
+        previewImage.style.display='block';
+        uploadSection.classList.add('hidden');
+        hintSection.classList.add('hidden');
+        previewSection.classList.remove('hidden');
+
+        // FIX: убираем случайный одиночный emoji-блок под фото
+        removeStrayEmojiAfter(previewSection);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function resizeAndConvert(file, maxSize=512, quality=0.7){
+      return new Promise((resolve,reject)=>{
+        const reader = new FileReader();
+        reader.onload = (e)=>{
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = ()=>{
+            let w=img.width, h=img.height;
+            if(w>h){ if(w>maxSize){ h*=maxSize/w; w=maxSize; } }
+            else   { if(h>maxSize){ w*=maxSize/h; h=maxSize; } }
+            const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+            const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+            resolve(canvas.toDataURL('image/jpeg',quality).split(',')[1]);
+          };
+          img.onerror = ()=> reject(new Error('Не удалось загрузить изображение для конвертации'));
+        };
+        reader.onerror = ()=> reject(new Error('Не удалось прочитать файл'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function callBackendApi(url,payload,retries=3,delay=800){
+      for(let i=0;i<retries;i++){
+        try{
+          const response = await fetch(url,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            credentials:'include',
+            body:JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if(!response.ok) throw new Error(result.error || `Ошибка сервера: ${response.status}`);
+          return result;
+        }catch(err){
+          if(i===retries-1) throw err;
+          await new Promise(r=>setTimeout(r, delay*Math.pow(2,i)));
         }
-        
-        // ===== Логика загрузки =====
-        let pendingBase64Data = null; // Глобальная переменная
+      }
+    }
 
-        imageUpload.addEventListener('change', async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
+    // ===== Рендер результатов
+    function displayResults(text){
+      const cleanedText = text.replace(/\*\*/g,'');
 
-            if(!vkToken){
-              showError('Авторизация обязательна. Открой сайт через приложение ОСО.');
-              imageUpload.value = '';
-              return;
-            }
-            if (!file.type.startsWith('image/')) {
-                showError('Пожалуйста, выбери изображение');
-                return;
-            }
+      let outfit = "Не удалось распознать.";
+      let style = "Не удалось распознать.";
+      let mood = null;            // словесная оценка (прилагательное)
+      let numericRating = null;   // fallback если модель прислала число
+      let advice = "Не удалось распознать.";
 
-            try {
-                resetUI(); // <-- Сброс тут
-                showPreview(file); 
-                loaderSection.style.display = 'block';
-                loaderSection.classList.remove('hidden');
+      const outfitMatch = cleanedText.match(/(?:Вы одеты в:|Одежда:)([\s\S]*?)(?:Ваш стиль:|Стиль:|Оценка образа:|Характер образа:|Сочетание одежды:|Оценка:|Что можно добавить:|Советы:|$)/i);
+      if(outfitMatch && outfitMatch[1]) outfit = outfitMatch[1].trim().replace(/^- /gm,'').replace(/\n/g,'<br>');
 
-                const base64Data = await resizeAndConvert(file);
-                window.pendingBase64Data = base64Data;
+      const styleMatch = cleanedText.match(/(?:Ваш стиль:|Стиль:)([\s\S]*?)(?:Оценка образа:|Характер образа:|Сочетание одежды:|Оценка:|Что можно добавить:|Советы:|$)/i);
+      if(styleMatch && styleMatch[1]) style = styleMatch[1].trim().replace(/^- /gm,'').replace(/\n/g,'<br>');
 
-                loaderSection.style.display = 'none';
-                loaderSection.classList.add('hidden');
-
-                window.location.href = '/start-analysis';
-
-                if (!isWebView()) {
-                    runAnalysisFromNative();
-                }
-            } catch (error) {
-                console.error("Ошибка при конвертации файла:", error);
-                showError(error.message || 'Не удалось обработать изображение');
-                loaderSection.style.display = 'none';
-                loaderSection.classList.add('hidden');
-                imageUpload.value = '';
-            }
-        });
-        
-        // ===== Анализ =====
-        async function runAnalysisFromNative() {
-            
-            // --- ИСПРАВЛЕНИЕ: УБИРАЕМ "ПРИЗРАЧНЫЙ СМАЙЛИК" ---
-            // Эта функция вызывается ПОСЛЕ рекламы, и мы должны
-            // очистить экран от *возможных* старых ошибок.
-            resetUI(); 
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-
-            const base64Data = window.pendingBase64Data; 
-            if (!base64Data) {
-                console.warn("Native app tried to start analysis, but no base64 data was pending.");
-                showError("Ошибка: Файл не найден после рекламы.");
-                return;
-            }
-
-            loaderSection.style.display = 'block';
-            loaderSection.classList.remove('hidden');
-            showInterstitialAd(); 
-
-            try {
-                const resultJson = await callBackendApi(BACKEND_API_URL, { imageData: base64Data });
-                
-                // Теперь resultJson это { text: "...", remaining: X }
-                displayResults(resultJson.text); 
-                
-                const remainingSpan = document.getElementById('rem-left');
-                if(remainingSpan && resultJson.remaining !== undefined) {
-                  remainingSpan.textContent = `${resultJson.remaining} / 5`;
-                }
-            } catch (error) {
-                console.error("Ошибка из callBackendApi:", error);
-                showError(error.message || 'Не удалось проанализировать фото');
-                if (error.message.includes("Лимит")) {
-                    const remainingSpan = document.getElementById('rem-left');
-                    if (remainingSpan) remainingSpan.textContent = '0 / 5';
-                }
-            } finally {
-                loaderSection.style.display = 'none';
-                loaderSection.classList.add('hidden');
-                window.pendingBase64Data = null;
-                imageUpload.value = ''; 
-            }
+      const moodMatch = cleanedText.match(/(?:Оценка образа:|Характер образа:|Впечатление:)([\s\S]*?)(?:Что можно добавить:|Советы:|$)/i);
+      if(moodMatch && moodMatch[1]){
+        mood = moodMatch[1].trim().replace(/\n/g,' ').replace(/\s{2,}/g,' ');
+      }else{
+        const ratingMatch = cleanedText.match(/(?:Сочетание одежды:|Оценка:)([\s\S]*?)(?:Что можно добавить:|Советы:|$)/i);
+        if(ratingMatch && ratingMatch[1]){
+          const ratingNumMatch = ratingMatch[1].match(/(\d+)/);
+          if(ratingNumMatch) numericRating = parseInt(ratingNumMatch[1],10);
         }
+      }
 
-        // ===== Новое фото =====
-        btnNewPhoto?.addEventListener('click', resetToInitial);
+      const adviceMatch = cleanedText.match(/(?:Что можно добавить:|Советы:|Рекомендации:)([\s\S]*?)$/i);
+      if(adviceMatch && adviceMatch[1]) advice = adviceMatch[1].trim().replace(/^- /gm,'• ').replace(/\n/g,'<br>');
 
-        function showPreview(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImage.src = e.target.result;
-                previewImage.style.display = 'block';
-                uploadSection.classList.add('hidden');
-                hintSection.classList.add('hidden');
-                previewSection.classList.remove('hidden');
-            };
-            reader.readAsDataURL(file);
-        }
+      resultClothes.innerHTML = outfit;
+      resultStyle.innerHTML = style;
 
-        function resizeAndConvert(file, maxSize = 512, quality = 0.7) {
-            // ... (код без изменений)
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = () => {
-                        let width = img.width, height = img.height;
-                        if (width > height) { if (width > maxSize) { height *= maxSize / width; width = maxSize; } }
-                        else { if (height > maxSize) { width *= maxSize / height; height = maxSize; } }
-                        const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
-                        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
-                    };
-                    img.onerror = (e) => reject(new Error("Не удалось загрузить изображение для конвертации"));
-                };
-                reader.onerror = (e) => reject(new Error("Не удалось прочитать файл"));
-                reader.readAsDataURL(file);
-            });
-        }
+      if(mood){
+        ratingText.textContent = mood;
+        stars.style.display = 'none';
+      }else if(typeof numericRating === 'number'){
+        displayStars(numericRating);
+        ratingText.textContent = `${numericRating}/10`;
+        stars.style.display = '';
+      }else{
+        ratingText.textContent = '—';
+        stars.style.display = 'none';
+      }
 
-        async function callBackendApi(url, payload, retries = 3, delay = 800) {
-          // ... (код без изменений, возвращает `result`)
-          for (let i = 0; i < retries; i++) {
-            try {
-              const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-              });
-              const result = await response.json();
-              if (!response.ok) {
-                throw new Error(result.error || `Ошибка сервера: ${response.status}`);
-              }
-              return result;
-            } catch (err) {
-              if (i === retries - 1) throw err;
-              await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
-            }
-          }
-        }
+      resultSuggestions.innerHTML = advice;
 
-        // ===== Рендер результатов (НОВАЯ ЛОГИКА) =====
-        function displayResults(text) {
-            if (!text) {
-                showError("Gemini вернул пустой ответ.");
-                return;
-            }
-            
-            const cleanedText = text.replace(/\*\*/g, '');
-            let outfit = "Не удалось распознать.";
-            let style = "Не удалось распознать.";
-            let ratingStr = "Не удалось распознать."; // <-- Изменено
-            let advice = "Не удалось распознать.";
+      resultsSection.style.display='block';
+      resultsSection.classList.remove('hidden');
+    }
 
-            const outfitMatch = cleanedText.match(/(?:Вы одеты в:|Одежда:)([\s\S]*?)(?:Ваш стиль:|Стиль:|Оценка образа:|Оценка:|Что можно добавить:|Советы:|$)/i);
-            if (outfitMatch && outfitMatch[1]) outfit = outfitMatch[1].trim().replace(/^- /gm, '').replace(/\n/g, '<br>');
+    function displayStars(rating){
+      stars.innerHTML='';
+      for(let i=0;i<10;i++){
+        const star=document.createElement('div');
+        star.className = i < rating ? 'star' : 'star empty';
+        stars.appendChild(star);
+      }
+    }
 
-            const styleMatch = cleanedText.match(/(?:Ваш стиль:|Стиль:)([\s\S]*?)(?:Оценка образа:|Оценка:|Что можно добавить:|Советы:|$)/i);
-            if (styleMatch && styleMatch[1]) style = styleMatch[1].trim().replace(/^- /gm, '').replace(/\n/g, '<br>');
+    function showError(message){
+      errorText.textContent = message;
+      errorSection.style.display='block';
+      errorSection.classList.remove('hidden');
+    }
 
-            // --- ИЗМЕНЕНИЕ: Ищем "Оценка образа" ---
-            const ratingMatch = cleanedText.match(/(?:Оценка образа:|Оценка:)([\s\S]*?)(?:Что можно добавить:|Советы:|$)/i);
-            if (ratingMatch && ratingMatch[1]) {
-                ratingStr = ratingMatch[1].trim().replace(/["\[\]]/g, ''); // Убираем кавычки/скобки
-            }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+    function resetUI(){
+      errorSection.classList.add('hidden'); errorSection.style.display='none';
+      resultsSection.classList.add('hidden'); resultsSection.style.display='none';
+      resultClothes.innerHTML=''; resultStyle.innerHTML=''; resultSuggestions.innerHTML='';
+      ratingText.textContent=''; stars.innerHTML='';
+    }
 
-            const adviceMatch = cleanedText.match(/(?:Что можно добавить:|Советы:|Рекомендации:)([\s\S]*?)$/i);
-            if (adviceMatch && adviceMatch[1]) advice = adviceMatch[1].trim().replace(/^- /gm, '• ').replace(/\n/g, '<br>');
+    function resetToInitial(){
+      resetUI();
+      hintSection.classList.remove('hidden');
+      uploadSection.classList.remove('hidden');
+      previewSection.classList.add('hidden');
+      loaderSection.classList.add('hidden'); loaderSection.style.display='none';
+      imageUpload.value=''; window.pendingBase64Data=null; setAuthUI();
+      removeStrayEmojiAfter(previewSection); // подчищаем на всякий
+    }
 
-            resultClothes.innerHTML = outfit;
-            resultStyle.innerHTML = style;
-            
-            // --- ИЗМЕНЕНИЕ: Прячем звезды, показываем текст ---
-            if (stars) stars.style.display = 'none'; // Прячем звезды
-            if (ratingText) {
-                ratingText.innerHTML = ratingStr; // Вставляем текст
-                ratingText.className = 'text-xl font-semibold text-white'; // Делаем большим
-            }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-            
-            resultSuggestions.innerHTML = advice;
-
-            resultsSection.style.display = 'block';
-            resultsSection.classList.remove('hidden');
-        }
-
-        function displayStars(rating) {
-            // (эта функция больше не используется, но пусть будет)
-            stars.innerHTML = '';
-            for (let i = 0; i < 10; i++) {
-                const star = document.createElement('div');
-                star.className = i < rating ? 'star' : 'star empty';
-                stars.appendChild(star);
-            }
-        }
-
-        function showError(message) {
-            errorText.textContent = message;
-            errorSection.style.display = 'block';
-            errorSection.classList.remove('hidden');
-        }
-
-        // ===== resetUI (НОВАЯ ЛОГИКА) =====
-        function resetUI() {
-            errorSection.classList.add('hidden');
-            errorSection.style.display = 'none';
-            resultsSection.classList.add('hidden');
-            resultsSection.style.display = 'none';
-            resultClothes.innerHTML = "";
-            resultStyle.innerHTML = "";
-            resultSuggestions.innerHTML = "";
-            
-            // --- ИЗМЕНЕНИЕ: Сбрасываем стили ---
-            if (stars) stars.style.display = 'flex'; // Возвращаем звезды
-            if (ratingText) {
-                ratingText.innerHTML = "";
-                ratingText.className = 'text-white/70 text-sm'; // Возвращаем старый стиль
-            }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-        }
-
-        function resetToInitial() {
-            resetUI();
-            hintSection.classList.remove('hidden');
-            uploadSection.classList.remove('hidden');
-            previewSection.classList.add('hidden');
-            loaderSection.classList.add('hidden');
-            loaderSection.style.display = 'none';
-            imageUpload.value = '';
-            window.pendingBase64Data = null; 
-            setAuthUI();
-        }
-    </script>
+    // ===== FIX helper — удаляем «смайлик-хвост» под превью
+    function removeStrayEmojiAfter(anchorEl){
+      if(!anchorEl) return;
+      let el = anchorEl.nextElementSibling;
+      if(!el || el.id==='loader-section' || el.id==='results-section') return;
+      const txt = (el.textContent||'').trim();
+      const hasLetters = /[A-Za-zА-Яа-я0-9]/.test(txt);
+      const hasEmoji = /\p{Extended_Pictographic}/u.test(txt);
+      if(el.children.length===0 && !hasLetters && hasEmoji && txt.length<=3){
+        el.remove();
+      }
+    }
+  </script>
 </body>
 </html>
