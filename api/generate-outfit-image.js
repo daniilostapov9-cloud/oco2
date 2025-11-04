@@ -1,34 +1,30 @@
 // /api/generate-outfit-image.js
-// LaoZhang (OpenAI-compatible Images API) + кэш: 1 картинка в день на пользователя.
-
 import { sql } from "@vercel/postgres";
 
 export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
-const LZ_BASE  = process.env.LAOZHANG_BASE  || "https://api.laozhang.ai/v1";
-const LZ_KEY   = process.env.LAOZHANG_API_KEY;
-const LZ_MODEL = process.env.LAOZHANG_MODEL || "gpt-image-1"; // например: gpt-image-1 или gpt-4o-image
+const LZ_BASE   = process.env.LAOZHANG_BASE  || "https://api.laozhang.ai/v1";
+const LZ_KEY    = process.env.LAOZHANG_API_KEY;
+const LZ_MODEL  = process.env.LAOZHANG_MODEL || "gpt-image-1";
+const LZ_SIZE   = process.env.LAOZHANG_SIZE  || "512x512";
+const LZ_QUALITY= process.env.LAOZHANG_QUALITY || "low"; // дешевле
 
 function parseCookies(req){
   const h = req.headers.cookie || "";
-  return Object.fromEntries(
-    h.split(";").map(v => v.trim().split("=").map(decodeURIComponent)).filter(p => p[0])
-  );
+  return Object.fromEntries(h.split(";").map(v=>v.trim().split("=").map(decodeURIComponent)).filter(p=>p[0]));
 }
-function ymdZurich(d = new Date()){
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Zurich", year: "numeric", month: "2-digit", day: "2-digit"
-  }).formatToParts(d).reduce((a,p)=> (a[p.type]=p.value, a), {});
-  return `${parts.year}-${parts.month}-${parts.day}`;
+function ymdZurich(d=new Date()){
+  const p = new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/Zurich",year:"numeric",month:"2-digit",day:"2-digit"})
+    .formatToParts(d).reduce((a,x)=>(a[x.type]=x.value,a),{});
+  return `${p.year}-${p.month}-${p.day}`;
 }
 function buildPrompt({ outfit, gender }){
-  // твой формулировочный стиль
   const prefix = `Generate me pixel person with description like in the text: `;
   const style  = ` Pixel art, clean palette, crisp sprite, full figure, simple studio background, no text.`;
   return `${prefix}"${outfit}" (gender: ${gender}).${style}`;
 }
 
-export default async function handler(req, res){
+export default async function handler(req,res){
   try{
     if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
     if (!LZ_KEY) return res.status(500).json({ error:"LAOZHANG_API_KEY не задан" });
@@ -44,7 +40,7 @@ export default async function handler(req, res){
     const today = ymdZurich();
     if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
 
-    // 0) кэш сегодняшнего дня
+    // кэш «1/день»
     const cached = await sql`
       SELECT image_base64 FROM user_calendar
       WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE
@@ -54,21 +50,21 @@ export default async function handler(req, res){
       return res.status(200).json({ image_base64: cached.rows[0].image_base64, cached:true });
     }
 
-    // 1) обеспечим запись дня (для привязки кэша)
+    // гарантия записи дня
     await sql`
       INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated)
       VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE)
       ON CONFLICT (vk_user_id,date) DO NOTHING
     `;
 
-    // 2) вызов laozhang (OpenAI Images API совместимый)
+    // вызов LaoZhang по OpenAI Images API
     const prompt = buildPrompt({ outfit, gender });
     const payload = {
       model: LZ_MODEL,
       prompt,
-      size: "512x512",              // можешь поставить 256x256 для ещё меньшей цены
+      size: LZ_SIZE,
+      quality: LZ_QUALITY,
       response_format: "b64_json"
-      // при желании: quality: "low" | "high" — зависит от модели шлюза
     };
 
     const resp = await fetch(`${LZ_BASE}/images/generations`, {
@@ -82,29 +78,25 @@ export default async function handler(req, res){
 
     const text = await resp.text();
     if (!resp.ok) {
-      // покажем всю причину от провайдера (часто 400 = insufficient balance / wrong model)
-      return res.status(resp.status).json({ error:`LaoZhang API ${resp.status}`, details: text.slice(0, 800) });
+      // Печатаем оригинальный ответ провайдера, чтобы не гадать
+      return res.status(resp.status).json({ error:`LaoZhang API ${resp.status}`, details: text.slice(0,1000) });
     }
 
     let data;
     try { data = JSON.parse(text); }
-    catch { return res.status(500).json({ error:"LaoZhang: не-JSON", details: text.slice(0,300) }); }
+    catch { return res.status(500).json({ error:"LaoZhang: не-JSON", details: text.slice(0,400) }); }
 
     const b64 = data?.data?.[0]?.b64_json || data?.data?.[0]?.base64;
-    if (!b64) {
-      return res.status(500).json({ error:"LaoZhang: нет b64 в ответе", details: JSON.stringify(data).slice(0,500) });
-    }
+    if (!b64) return res.status(500).json({ error:"LaoZhang: нет b64 в ответе", details: JSON.stringify(data).slice(0,600) });
 
-    // 3) кэшируем и отдаём
     await sql`
       UPDATE user_calendar
       SET image_base64=${b64}, image_generated=TRUE
       WHERE vk_user_id=${vkUserId} AND date=${today}
     `;
-
     return res.status(200).json({ image_base64: b64 });
   }catch(e){
     console.error(e);
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error:e.message });
   }
 }
