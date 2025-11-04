@@ -3,10 +3,10 @@ import { sql } from "@vercel/postgres";
 
 export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
-// --- Константа Dezgo (без изменений) ---
+// --- Константа Dezgo ---
 const DEZGO_KEY = process.env.DEZGO_API_KEY;
 
-// --- Твои старые функции (без изменений) ---
+// --- Твои старые функции ---
 function parseCookies(req){
   const h = req.headers.cookie || "";
   return Object.fromEntries(h.split(";").map(v=>v.trim().split("=").map(decodeURIComponent)).filter(p=>p[0]));
@@ -19,6 +19,7 @@ function ymdZurich(d=new Date()){
 function buildPrompt({ outfit, gender }){
   const prefix = `Generate me pixel person with description like in the text: `;
   const style  = ` Pixel art, clean palette, crisp sprite, full figure, simple studio background, no text.`;
+  // 'outfit' здесь будет на русском
   return `${prefix}"${outfit}" (gender: ${gender}).${style}`;
 }
 
@@ -27,7 +28,7 @@ export default async function handler(req,res){
     if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
     if (!DEZGO_KEY) return res.status(500).json({ error:"DEZGO_API_KEY не задан" });
 
-    // --- НАЧАЛО: ВОССТАНОВЛЕННЫЕ БЛОКИ ---
+    // --- НАЧАЛО: ПОЛНЫЙ БЛОК ПРОВЕРОК ---
     
     // 1. Проверка Cookies
     const cookies  = parseCookies(req);
@@ -35,7 +36,7 @@ export default async function handler(req,res){
     const vkUserId = cookies["vk_user_id"];
     if (!vkToken || !vkUserId) return res.status(401).json({ error:"Требуется авторизация" });
 
-    // 2. Проверка Тела Запроса (ЗДЕСЬ БЫЛА ОШИБКА)
+    // 2. Проверка Тела Запроса (исправляет 'outfit is not defined')
     const { date, outfit, gender } = req.body || {};
     if (!date || !outfit || !gender) return res.status(400).json({ error:"Не хватает полей (date, outfit, gender)" });
 
@@ -59,20 +60,18 @@ export default async function handler(req,res){
       VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE)
       ON CONFLICT (vk_user_id,date) DO NOTHING
     `;
-    // --- КОНЕЦ: ВОССТАНОВЛЕННЫЕ БЛОКИ ---
+    // --- КОНЕЦ: ПОЛНЫЙ БЛОК ПРОВЕРОК ---
 
 
-    // --- НАЧАЛО: ЛОГИКА DEZGO FLUX ---
+    // --- НАЧАЛО: ЛОГИКА DEZGO FLUX (ИСПРАВЛЕНО) ---
     
-    // Теперь 'outfit' и 'gender' 100% существуют
     const prompt = buildPrompt({ outfit, gender });
 
+    // ИСПРАВЛЕНИЕ: 'response_format: "base64"' убран
     const payload = {
       prompt: prompt,
-      // 'model' убран
       width: 1024,
-      height: 1024,
-      response_format: "base64"
+      height: 1024
     };
 
     const resp = await fetch("https://api.dezgo.com/text2image_flux", {
@@ -80,7 +79,8 @@ export default async function handler(req,res){
       headers: {
         "X-Dezgo-Key": DEZGO_KEY,
         "Content-Type": "application/json",
-        "Accept": "application/json"
+        // Этот заголовок говорит Dezgo, что мы ждем JSON, а не PNG
+        "Accept": "application/json" 
       },
       body: JSON.stringify(payload)
     });
@@ -90,8 +90,9 @@ export default async function handler(req,res){
       return res.status(resp.status).json({ error:`Dezgo FLUX API ${resp.status}`, details: errDetails });
     }
 
+    // Теперь 'resp.json()' сработает, т.к. Dezgo вернет JSON
     const data = await resp.json();
-    const b64 = data.image;
+    const b64 = data.image; // 'image' - это поле с base64
 
     if (!b64) {
       return res.status(500).json({ error:"Dezgo FLUX: нет 'image' (base64) в ответе", details: JSON.stringify(data).slice(0,600) });
@@ -109,6 +110,7 @@ export default async function handler(req,res){
 
   }catch(e){
     console.error(e);
+    // Ошибка 'Unexpected token' 'PNG' больше не должна здесь появляться
     return res.status(500).json({ error:e.message });
   }
 }
