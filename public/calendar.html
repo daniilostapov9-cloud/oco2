@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Модный Календарь</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
+  
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; background:#0a0a0a; color:#fff; }
@@ -30,16 +33,20 @@
     .day:hover{ transform: translateY(-1px); box-shadow: 0 8px 24px rgba(22, 163, 74, .15); }
     .day.disabled{ opacity:.35; pointer-events:none; }
     .day.sunday .num{ color:#ff7a7a; }
-    .day.today{ background:linear-gradient(180deg, rgba(76,175,115,.25), rgba(35,94,62,.2));
-      border-color: rgba(76,175,115,.45);
-      box-shadow: 0 8px 26px rgba(35, 94, 62, .35), inset 0 1px 0 rgba(255,255,255,.1); }
-    .day.today::after{ content:""; position:absolute; inset:-2px; border-radius:14px;
-      box-shadow: 0 0 0 2px rgba(76,175,115,.45) inset; pointer-events:none; }
+    .day.tomorrow{ background:linear-gradient(180deg, rgba(76,175,115,.25), rgba(35,94,62,.2));
+                   border-color: rgba(76,175,115,.45);
+                   box-shadow: 0 8px 26px rgba(35, 94, 62, .35), inset 0 1px 0 rgba(255,255,255,.1); }
+    .day.tomorrow::after{ content:""; position:absolute; inset:-2px; border-radius:14px;
+                          box-shadow: 0 0 0 2px rgba(76,175,115,.45) inset; pointer-events:none; }
     .day.done{ opacity:.45; }
     .day.done::before{ content:"✓"; position:absolute; right:6px; top:6px; font-size:.8rem; color:#b6e7c9; text-shadow:0 1px 0 rgba(0,0,0,.4); }
     .chip{padding:.5rem .75rem;border-radius:999px;background:#1f2937;cursor:pointer}
     .chip.active{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%)}
     .ok-btn{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); box-shadow:0 4px 20px rgba(124,58,237,.4)}
+    
+    /* Доп. стили, чтобы .innerHTML выглядел хорошо */
+    #outfitText strong { color: #fff; font-weight: 600; }
+    #outfitText p { margin: 0; } /* marked может оборачивать в <p>, убираем отступы */
   </style>
 </head>
 <body class="min-h-screen">
@@ -59,22 +66,28 @@
       <div class="flex items-end justify-between mb-2">
         <div class="cal-year" id="yearLabel"></div>
       </div>
+
       <div class="flex items-center justify-between mb-2">
         <h2 class="cal-month text-3xl font-semibold" id="monthLabel"></h2>
         <div class="text-white/80 text-sm" id="todayLabel"></div>
       </div>
 
       <div class="grid7 text-xs mb-2">
-        <div class="wd text-center">ПН</div><div class="wd text-center">ВТ</div><div class="wd text-center">СР</div>
-        <div class="wd text-center">ЧТ</div><div class="wd text-center">ПТ</div><div class="wd text-center">СБ</div><div class="wd text-center">ВС</div>
+        <div class="wd text-center">ПН</div>
+        <div class="wd text-center">ВТ</div>
+        <div class="wd text-center">СР</div>
+        <div class="wd text-center">ЧТ</div>
+        <div class="wd text-center">ПТ</div>
+        <div class="wd text-center">СБ</div>
+        <div class="wd text-center">ВС</div>
       </div>
 
       <div id="calGrid" class="grid7"></div>
-      <p class="text-xs text-white/70 mt-3">Активен только <b>сегодняшний</b> день. Нажми на сегодняшний день чтобы пройти check-in ✓.</p>
+      <p class="text-xs text-white/70 mt-3">Активен только <b>завтрашний</b> день. Подтверждённые помечаются ✓.</p>
     </section>
 
     <section id="picker" class="mt-6 bg-[#141414] rounded-2xl p-4 shadow-xl hidden">
-      <h3 class="font-semibold mb-3">Какое у тебя настроение <b>сегодня</b>?</h3>
+      <h3 class="font-semibold mb-3">Какое у тебя настроение на завтра?</h3>
       <div id="moods" class="flex flex-wrap gap-2"></div>
 
       <h3 class="font-semibold mt-5 mb-3">Выбери пол</h3>
@@ -86,7 +99,9 @@
       <button id="genBtn" class="ok-btn mt-5 w-full py-3 rounded-xl font-semibold disabled opacity-50" disabled>
         Подобрать образ
       </button>
-      <div id="lockNote" class="text-xs text-emerald-300 mt-2 hidden"></div>
+      <div id="genNote" class="text-xs text-white/50 mt-2">
+        После подтверждения этот день будет помечен ✓, а новый образ можно будет выбрать завтра.
+      </div>
     </section>
 
     <section id="resultCard" class="mt-6 bg-[#141414] rounded-2xl p-4 shadow-xl hidden">
@@ -94,18 +109,8 @@
         <div class="w-10 h-10 rounded-xl flex items-center justify-center"
              style="background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%);">👗</div>
         <div class="flex-1">
-          <h3 class="font-semibold mb-2">Образ на сегодня</h3>
+          <h3 class="font-semibold mb-2">Образ на завтра</h3>
           <div id="outfitText" class="text-white/80 text-sm leading-relaxed whitespace-pre-line"></div>
-
-          <div id="previewWrap" class="mt-4 hidden">
-            <button id="previewBtn" class="w-full py-2 rounded-xl font-semibold border border-white/10 hover:bg-white/5">
-              Показать «Пример образа» (пиксель-арт)
-            </button>
-            <div id="previewImgBox" class="mt-3 hidden">
-              <img id="previewImg" class="w-full rounded-xl" alt="Пример образа">
-            </div>
-          </div>
-
           <button id="confirmBtn" class="ok-btn mt-4 w-full py-3 rounded-xl font-semibold">Окей</button>
         </div>
       </div>
@@ -113,106 +118,176 @@
   </div>
 
   <script>
-    // ===== cookies (подсказка, если не авторизован)
-    function getCookie(name){ return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1]; }
-    const vkToken = getCookie('vk_id_token'); const vkUserId = getCookie('vk_user_id');
-    if (!vkToken || !vkUserId) { const hint = document.getElementById('auth-hint'); hint.classList.remove('hidden'); hint.textContent='Войдите через приложение ОСО.'; }
-
-    // ===== даты
-    const tz='Europe/Zurich';
-    const fmtMonth=(d)=>new Intl.DateTimeFormat('ru-RU',{timeZone:tz,month:'long'}).format(d).toUpperCase();
-    const fmtYear =(d)=>new Intl.DateTimeFormat('ru-RU',{timeZone:tz,year:'numeric'}).format(d);
-    const fmtToday=(d)=>new Intl.DateTimeFormat('ru-RU',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
-    const ymd     =(d)=>new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
-    const now=new Date(); const todayYMD=ymd(now);
-
-    // ===== UI state
-    const MOODS=['радостное','грустное','тревожное','раздражительное','виноватое','расслабленное','возбужденное','скучное','творческое'];
-    const moodsWrap=document.getElementById('moods'); let pickedMood=null, pickedGender=null, pickedDate=null, generatedOutfit=null;
-
-    MOODS.forEach(m=>{ const b=document.createElement('button'); b.className='chip'; b.textContent=m.charAt(0).toUpperCase()+m.slice(1);
-      b.onclick=()=>{[...moodsWrap.children].forEach(c=>c.classList.remove('active')); b.classList.add('active'); pickedMood=m; maybeEnableGen();}; moodsWrap.appendChild(b); });
-    document.querySelectorAll('#genders .chip').forEach(btn=>{ btn.onclick=()=>{document.querySelectorAll('#genders .chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active'); pickedGender=btn.dataset.gender; maybeEnableGen();}; });
-
-    function maybeEnableGen(){ const g=document.getElementById('genBtn'); if(pickedMood&&pickedGender&&pickedDate===todayYMD){ g.disabled=false; g.classList.remove('disabled','opacity-50'); } else { g.disabled=true; g.classList.add('disabled','opacity-50'); } }
-
-    // ===== серверные отметки (галочки)
-    let completed={};
-    async function fetchCompleted(year,month){ try{ const r=await fetch(`/api/calendar-get?year=${year}&month=${month}`,{credentials:'include'}); if(r.ok){(await r.json()).entries.forEach(e=>completed[e.date]=e.confirmed);} }catch(e){} }
-
-    // ===== рендер сетки (6x7)
-    async function renderCalendar(){
-      const calGrid=document.getElementById('calGrid'); const monthLabel=document.getElementById('monthLabel');
-      const yearLabel=document.getElementById('yearLabel'); const todayLabel=document.getElementById('todayLabel');
-      const local=new Date(new Intl.DateTimeFormat('en-CA',{timeZone:tz}).format(now)+'T00:00:00Z'); const year=local.getUTCFullYear(); const month=local.getUTCMonth();
-      await fetchCompleted(year,month+1);
-      monthLabel.textContent=fmtMonth(now); yearLabel.textContent=fmtYear(now); todayLabel.textContent='Сегодня: '+fmtToday(now);
-      calGrid.innerHTML='';
-      const first=new Date(Date.UTC(year,month,1)); let weekday=first.getUTCDay(); if(weekday===0)weekday=7;
-      const daysInMonth=new Date(year,month+1,0).getUTCDate(); const daysInPrev=new Date(year,month,0).getUTCDate();
-      for(let i=weekday-2;i>=0;i--){ const num=daysInPrev-i; const ph=document.createElement('button'); ph.className='day other disabled'; ph.disabled=true; ph.innerHTML=`<span class="num">${num}</span>`; calGrid.appendChild(ph); }
-      for(let d=1; d<=daysInMonth; d++){ const date=new Date(Date.UTC(year,month,d)); const dateYMD=ymd(date);
-        const cell=document.createElement('button'); cell.className='day'; cell.innerHTML=`<span class="num">${d}</span>`;
-        let w=date.getUTCDay(); if(w===0)w=7; if(w===7)cell.classList.add('sunday');
-        const isToday=dateYMD===todayYMD;
-        if(completed[dateYMD]){ cell.classList.add('done','disabled'); cell.disabled=true; }
-        else if(isToday){ cell.classList.add('today'); }
-        else { cell.classList.add('disabled'); cell.disabled=true; }
-        if(isToday && !completed[dateYMD]){ cell.addEventListener('click',()=>{ pickedDate=dateYMD; document.getElementById('picker').classList.remove('hidden'); maybeEnableGen(); cell.focus(); }); }
-        calGrid.appendChild(cell);
-      }
-      const cellsNow=calGrid.children.length; const tail=(Math.ceil(cellsNow/7)*7===cellsNow)?0:(Math.ceil(cellsNow/7)*7-cellsNow);
-      const need=(cellsNow+tail<42)?42-cellsNow:tail; for(let i=1;i<=need;i++){ const ph=document.createElement('button'); ph.className='day other disabled'; ph.disabled=true; ph.innerHTML=`<span class="num">${i}</span>`; calGrid.appendChild(ph); }
+    // ===== auth cookies (optional hint)
+    function getCookie(name){
+      return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1];
+    }
+    const vkToken = getCookie('vk_id_token');
+    const vkUserId = getCookie('vk_user_id');
+    if (!vkToken || !vkUserId) {
+      const hint = document.getElementById('auth-hint');
+      hint.classList.remove('hidden');
+      hint.textContent = 'Войдите через приложение ОСО, чтобы пользоваться календарём.';
     }
 
-    // ===== генерация (анти-спам + предпросмотр картинки)
-    const genBtn=document.getElementById('genBtn'); const resultCard=document.getElementById('resultCard'); const outfitTextEl=document.getElementById('outfitText');
-    const confirmBtn=document.getElementById('confirmBtn'); const lockNote=document.getElementById('lockNote');
-    const previewWrap=document.getElementById('previewWrap'); const previewBtn=document.getElementById('previewBtn');
-    const previewImgBox=document.getElementById('previewImgBox'); const previewImg=document.getElementById('previewImg');
+    // ===== dates
+    const tz = 'Europe/Zurich';
+    const fmtMonth = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, month:'long'}).format(d).toUpperCase();
+    const fmtYear = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, year:'numeric'}).format(d);
+    const fmtToday = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, year:'numeric', month:'2-digit', day:'2-digit'}).format(d);
+    const ymd = (d) => new Intl.DateTimeFormat('en-CA',{ timeZone:tz, year:'numeric', month:'2-digit', day:'2-digit'}).format(d);
 
-    genBtn.addEventListener('click', async ()=>{
-      genBtn.disabled=true; genBtn.textContent='Подбираю...';
-      lockNote.classList.add('hidden'); lockNote.textContent='';
+    const now = new Date();
+    const tomorrow = new Date(); tomorrow.setDate(now.getDate()+1);
+    const tomorrowYMD = ymd(tomorrow);
+
+    // ===== mood chips
+    const MOODS = ['радостное','грустное','тревожное','раздражительное','виноватое','расслабленное','возбужденное','скучное','творческое'];
+    const moodsWrap = document.getElementById('moods');
+    let pickedMood = null, pickedGender = null, pickedDate = null, generatedOutfit = null;
+    MOODS.forEach(m => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = m.charAt(0).toUpperCase() + m.slice(1);
+      b.onclick = () => { [...moodsWrap.children].forEach(c=>c.classList.remove('active')); b.classList.add('active'); pickedMood=m; maybeEnableGen(); };
+      moodsWrap.appendChild(b);
+    });
+    document.querySelectorAll('#genders .chip').forEach(btn => {
+      btn.onclick = () => { document.querySelectorAll('#genders .chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active'); pickedGender=btn.dataset.gender; maybeEnableGen(); }
+    });
+    function maybeEnableGen(){
+      const genBtn = document.getElementById('genBtn');
+      if (pickedMood && pickedGender && pickedDate === tomorrowYMD) { genBtn.disabled=false; genBtn.classList.remove('disabled','opacity-50'); }
+      else { genBtn.disabled=true; genBtn.classList.add('disabled','opacity-50'); }
+    }
+
+    // ===== DB completed
+    let completed = {};
+    async function fetchCompleted(year, month){
       try{
-        const r=await fetch('/api/generate-outfit',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-          body:JSON.stringify({ date:pickedDate, mood:pickedMood, gender:pickedGender }) });
-        const data=await r.json();
-        if(!r.ok) throw new Error(data.error||'Ошибка генерации');
-        generatedOutfit=data.outfit;
-        outfitTextEl.textContent=generatedOutfit;
-        resultCard.classList.remove('hidden'); resultCard.scrollIntoView({behavior:'smooth'});
-        previewWrap.classList.remove('hidden');   // показываем кнопку «Пример образа»
-        if(data.locked_until_human){              // покажем, что сессия зафиксирована
-          lockNote.textContent = 'Генерация зафиксирована до ' + data.locked_until_human + '. Повторные клики не создадут новый образ.';
-          lockNote.classList.remove('hidden');
+        const r = await fetch(`/api/calendar-get?year=${year}&month=${month}`, { credentials:'include' });
+        if(r.ok){
+          (await r.json()).entries.forEach(e=> completed[e.date]=true);
         }
-      }catch(e){ alert(e.message); }
-      finally{ genBtn.textContent='Подобрать образ'; maybeEnableGen(); }
+      }catch(e){}
+    }
+
+    // ===== build grid with prev/next month numbers (disabled), dynamic to 6 rows (42 cells)
+    async function renderCalendar(){
+      const calGrid = document.getElementById('calGrid');
+      const monthLabel = document.getElementById('monthLabel');
+      const yearLabel = document.getElementById('yearLabel');
+      const todayLabel = document.getElementById('todayLabel');
+
+      const local = new Date(new Intl.DateTimeFormat('en-CA',{timeZone:tz}).format(now)+'T00:00:00Z');
+      const year = local.getUTCFullYear();
+      const month = local.getUTCMonth(); // 0..11
+      await fetchCompleted(year, month+1);
+
+      monthLabel.textContent = fmtMonth(now);
+      yearLabel.textContent = fmtYear(now);
+      todayLabel.textContent = 'Сегодня: ' + fmtToday(now);
+
+      calGrid.innerHTML = '';
+
+      const first = new Date(Date.UTC(year, month, 1));
+      let weekday = first.getUTCDay(); if (weekday===0) weekday=7; // Mon=1..Sun=7
+      const daysInMonth = new Date(year, month+1, 0).getUTCDate();
+      const daysInPrev = new Date(year, month, 0).getUTCDate();
+
+      // leading from prev month
+      const lead = weekday-1;
+      for (let i=lead-1; i>=0; i--){
+        const num = daysInPrev - i;
+        const cell = document.createElement('button');
+        cell.className = 'day other disabled';
+        cell.disabled = true;
+        cell.innerHTML = `<span class="num">${num}</span>`;
+        calGrid.appendChild(cell);
+      }
+
+      // current month days
+      for (let d=1; d<=daysInMonth; d++){
+        const date = new Date(Date.UTC(year, month, d));
+        const dateYMD = ymd(date);
+        const cell = document.createElement('button');
+        cell.className = 'day';
+        cell.innerHTML = `<span class="num">${d}</span>`;
+
+        let w = date.getUTCDay(); if (w===0) w=7;
+        if (w===7) cell.classList.add('sunday');
+
+        const isTomorrow = dateYMD === tomorrowYMD;
+        if (completed[dateYMD]) {
+          cell.classList.add('done','disabled'); cell.disabled = true;
+        } else if (isTomorrow) {
+          cell.classList.add('tomorrow');
+        } else {
+          cell.classList.add('disabled'); cell.disabled = true;
+        }
+        if (isTomorrow && !completed[dateYMD]) {
+          cell.addEventListener('click', () => {
+            pickedDate = dateYMD;
+            document.getElementById('picker').classList.remove('hidden');
+            maybeEnableGen();
+            cell.focus();
+          });
+        }
+        calGrid.appendChild(cell);
+      }
+
+      // trailing for next month to fill to 42 cells
+      const cellsNow = calGrid.children.length;
+      const tail = (Math.ceil(cellsNow/7)*7 === cellsNow) ? 0 : (Math.ceil(cellsNow/7)*7 - cellsNow);
+      const nextNeeded = (cellsNow + tail < 42) ? 42 - cellsNow : tail;
+      for (let i=1; i<=nextNeeded; i++){
+        const cell = document.createElement('button');
+        cell.className = 'day other disabled'; cell.disabled = true;
+        cell.innerHTML = `<span class="num">${i}</span>`;
+        calGrid.appendChild(cell);
+      }
+    }
+
+    // ===== generate outfit
+    const genBtn = document.getElementById('genBtn');
+    const resultCard = document.getElementById('resultCard');
+    const outfitTextEl = document.getElementById('outfitText');
+    const confirmBtn = document.getElementById('confirmBtn');
+    genBtn.addEventListener('click', async () => {
+      genBtn.disabled = true; genBtn.textContent = 'Подбираю...';
+      try {
+        const r = await fetch('/api/generate-outfit', {
+          method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+          body: JSON.stringify({ date: pickedDate, mood: pickedMood, gender: pickedGender })
+        });
+        const data = await r.json(); if(!r.ok) throw new Error(data.error || 'Ошибка генерации');
+        
+        // --- ИЗМЕНЕНИЕ 2: Используем innerHTML и marked.parse() ---
+        generatedOutfit = data.outfit;
+        outfitTextEl.innerHTML = marked.parse(generatedOutfit); 
+        // --------------------------------------------------------
+        
+        resultCard.classList.remove('hidden');
+        resultCard.scrollIntoView({ behavior:'smooth' });
+      } catch(e){ alert(e.message); }
+      finally { genBtn.textContent = 'Подобрать образ'; maybeEnableGen(); }
     });
 
-    previewBtn?.addEventListener('click', async ()=>{
-      previewBtn.disabled=true; previewBtn.textContent='Рисую пример...';
-      try{
-        const r=await fetch('/api/generate-outfit-image',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-          body:JSON.stringify({ date:pickedDate, outfit:generatedOutfit, gender:pickedGender }) });
-        const data=await r.json();
-        if(!r.ok) throw new Error(data.error || 'Не удалось получить изображение');
-        previewImg.src = 'data:image/png;base64,' + data.image_base64;
-        previewImgBox.classList.remove('hidden');
-      }catch(e){ alert(e.message); }
-      finally{ previewBtn.disabled=false; previewBtn.textContent='Показать «Пример образа» (пиксель-арт)'; }
-    });
-
-    confirmBtn.addEventListener('click', async ()=>{
-      confirmBtn.disabled=true; confirmBtn.textContent='Сохраняю...';
-      try{
-        const r=await fetch('/api/calendar-set',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-          body:JSON.stringify({ date:pickedDate, mood:pickedMood, gender:pickedGender, outfit:generatedOutfit }) });
-        const data=await r.json(); if(!r.ok) throw new Error(data.error||'Ошибка сохранения');
-        alert('Готово! День отмечен.'); location.reload();
-      }catch(e){ alert(e.message); }
-      finally{ confirmBtn.disabled=false; confirmBtn.textContent='Окей'; }
+    // ===== confirm & save
+    confirmBtn.addEventListener('click', async () => {
+      confirmBtn.disabled = true; confirmBtn.textContent = 'Сохраняю...';
+      try {
+        const r = await fetch('/api/calendar-set', {
+          method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+          // Важно: мы отправляем НАЗАД в базу оригинальный (generatedOutfit) текст с Markdown,
+          // а не HTML. Это правильно.
+          body: JSON.stringify({ date: pickedDate, mood: pickedMood, gender: pickedGender, outfit: generatedOutfit })
+        });
+        const data = await r.json(); if(!r.ok) throw new Error(data.error || 'Ошибка сохранения');
+        alert('Готово! День отмечен.');
+        location.reload();
+      } catch(e){ alert(e.message); }
+      finally { confirmBtn.disabled = false; confirmBtn.textContent = 'Окей'; }
     });
 
     renderCalendar();
