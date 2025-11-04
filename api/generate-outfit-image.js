@@ -5,7 +5,8 @@ export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
 // --- API Ключи (нужны оба) ---
 const DEZGO_KEY = process.env.DEZGO_API_KEY;   // Для картинок
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; // Для перевода
+// --- ИСПРАВЛЕНО ---
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // Для перевода
 
 // --- Твои старые функции (без изменений) ---
 function parseCookies(req){
@@ -20,26 +21,24 @@ function ymdZurich(d=new Date()){
 
 // --- НОВАЯ ФУНКЦИЯ ПЕРЕВОДЧИКА (GEMINI) ---
 async function translateToEnglish(text) {
-  if (!GOOGLE_API_KEY) throw new Error("GOOGLE_API_KEY не задан для переводчика");
+  // --- ИСПРАВЛЕНО ---
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY не задан для переводчика");
 
-  // Используем gemini-1.5-flash — самый быстрый и дешевый
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`;
+  // --- ИСПРАВЛЕНО ---
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
   
   const payload = {
-    // Системный промпт для Gemini
     "systemInstruction": {
       "parts": [{ "text": "You are an expert translator. Translate the given Russian text to English. Return ONLY the translated text, without any introductory phrases or quotation marks." }]
     },
     "contents": [
       { "role": "user", "parts": [{ "text": text }] }
     ],
-    // Настройки для быстрого и точного перевода
     "generationConfig": {
       "temperature": 0.1,
       "topP": 1,
       "topK": 1
     },
-    // Отключаем блокировки для простого текста
     "safetySettings": [
       { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
       { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
@@ -70,7 +69,6 @@ async function translateToEnglish(text) {
 
 // --- "УМНЫЙ" ПРОМПТ (без изменений) ---
 function buildPrompt({ outfit, gender }){
-  // ВАЖНО: 'outfit' ТЕПЕРЬ БУДЕТ НА АНГЛИЙСКОМ
   const prefix = `A pixel art sprite of a ${gender}, full figure.`;
   const style  = `Pixel art, clean palette, crisp sprite, simple studio background, no text.`;
   const description = `The ${gender} is wearing: ${outfit}`;
@@ -82,8 +80,8 @@ export default async function handler(req,res){
   try{
     if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
     if (!DEZGO_KEY) return res.status(500).json({ error:"DEZGO_API_KEY не задан" });
-    // Новая проверка
-    if (!GOOGLE_API_KEY) return res.status(500).json({ error:"GOOGLE_API_KEY не задан" });
+    // --- ИСПРАВЛЕНО ---
+    if (!GEMINI_API_KEY) return res.status(500).json({ error:"GEMINI_API_KEY не задан" });
 
     // --- (Весь твой код проверки: cookies, req.body, кэш, sql insert) ---
     const cookies  = parseCookies(req);
@@ -104,7 +102,6 @@ export default async function handler(req,res){
     // --- ШАГ 1: ПЕРЕВОД (через Gemini) ---
     let englishOutfit;
     try {
-      // 'outfit' здесь — русский
       englishOutfit = await translateToEnglish(outfit); 
     } catch (e) {
       console.error(e);
