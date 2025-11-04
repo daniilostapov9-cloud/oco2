@@ -18,28 +18,20 @@ function ymdZurich(d=new Date()){
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ПЕРЕВОДЧИКА (AI Studio, v1 API) ---
+// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ПЕРЕВОДЧИКА (gemini-pro, v1) ---
 async function translateToEnglish(text) {
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY не задан для переводчика");
 
-  // --- ИСПРАВЛЕНИЕ: Используем стабильный 'v1' API ---
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+  // --- ИСПРАВЛЕНИЕ: Используем 'v1' и модель 'gemini-pro' ---
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
   
+  // 'gemini-pro' не поддерживает 'systemInstruction' и мульти-терн, как 1.5.
+  // Ему нужен простой, прямой промпт.
+  const prompt = `You are an expert translator. Translate the following Russian text to English. Return ONLY the translated text, without any introductory phrases or quotation marks. The text to translate is: "${text}"`;
+
   const payload = {
-    // 'v1' API не использует 'systemInstruction', встраиваем инструкцию сюда
     "contents": [
-      { 
-        "role": "user",
-        "parts": [{ "text": "You are an expert translator. Translate the following Russian text to English. Return ONLY the translated text, without any introductory phrases or quotation marks." }]
-      },
-      {
-        "role": "model",
-        "parts": [{ "text": "OK." }] // "Пример" для модели, чтобы она поняла формат
-      },
-      {
-        "role": "user",
-        "parts": [{ "text": text }] // Текст, который нужно перевести
-      }
+      { "parts": [{ "text": prompt }] }
     ],
     "generationConfig": {
       "temperature": 0.1,
@@ -61,11 +53,10 @@ async function translateToEnglish(text) {
   });
 
   if (!resp.ok) {
-    // Эта ошибка расскажет нам, в чем дело (например, 'API key not valid')
     throw new Error(`Google Gemini API Error ${resp.status}: ${await resp.text()}`);
   }
 
-  // Здесь была ошибка 'Unexpected token 'A''
+  // Ошибка 'Unexpected token 'A'' была здесь
   const data = await resp.json();
 
   if (!data.candidates || !data.candidates[0].content) {
@@ -89,7 +80,7 @@ function buildPrompt({ outfit, gender }){
 
 export default async function handler(req,res){
   try{
-    if (req.method !== "POST") return res.status(405).json({ error:"Method NotAllowed" });
+    if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
     if (!DEZGO_KEY) return res.status(500).json({ error:"DEZGO_KEY не задан" });
     if (!GEMINI_API_KEY) return res.status(500).json({ error:"GEMINI_API_KEY не задан" });
 
@@ -109,7 +100,7 @@ export default async function handler(req,res){
     await sql`INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated) VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE) ON CONFLICT (vk_user_id,date) DO NOTHING`;
     // --- (Конец твоего кода проверки) ---
 
-    // --- ШАГ 1: ПЕРЕВОД (через Gemini AI Studio) ---
+    // --- ШАГ 1: ПЕРЕВОД (через Gemini 'gemini-pro') ---
     let englishOutfit;
     try {
       englishOutfit = await translateToEnglish(outfit); 
@@ -120,7 +111,7 @@ export default async function handler(req,res){
     }
 
     // --- ШАГ 2: ГЕНЕРАЦИЯ (с английским, через Dezgo) ---
-    const prompt = buildPrompt({ outfit: englishOutfit, gender: gender });
+    const prompt = buildPrompt({ outfit: englishOutfit.trim(), gender: gender }); // Добавил .trim() для чистоты
 
     const payload = {
       prompt: prompt,
