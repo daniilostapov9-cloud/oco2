@@ -5,9 +5,9 @@ export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
 const LZ_BASE   = process.env.LAOZHANG_BASE  || "https://api.laozhang.ai/v1";
 const LZ_KEY    = process.env.LAOZHANG_API_KEY;
-const LZ_MODEL  = process.env.LAOZHANG_MODEL || "gpt-image-1";
-const LZ_SIZE   = process.env.LAOZHANG_SIZE  || "512x512";
-const LZ_QUALITY= process.env.LAOZHANG_QUALITY || "low"; // дешевле
+const LZ_MODEL  = process.env.LAOZHANG_MODEL || "gpt-image-1"; // Как вы и хотели
+const LZ_SIZE   = process.env.LAOZHANG_SIZE  || "512x512";     // Совместимо с gpt-image-1
+// const LZ_QUALITY= process.env.LAOZHANG_QUALITY || "low"; // Эту строку не используем
 
 function parseCookies(req){
   const h = req.headers.cookie || "";
@@ -57,15 +57,20 @@ export default async function handler(req,res){
       ON CONFLICT (vk_user_id,date) DO NOTHING
     `;
 
+    // --- ИСПРАВЛЕННЫЙ БЛОК ---
     // вызов LaoZhang по OpenAI Images API
     const prompt = buildPrompt({ outfit, gender });
+    
+    // Параметр 'quality' убран, так как он несовместим
+    // с моделями DALL-E 2 (gpt-image-1) и размером 512x512.
+    // Это и вызывало ошибку 500.
     const payload = {
       model: LZ_MODEL,
       prompt,
       size: LZ_SIZE,
-      quality: LZ_QUALITY,
       response_format: "b64_json"
     };
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     const resp = await fetch(`${LZ_BASE}/images/generations`, {
       method: "POST",
