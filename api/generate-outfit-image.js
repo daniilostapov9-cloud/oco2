@@ -4,9 +4,8 @@ import { sql } from "@vercel/postgres";
 export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
 // --- API Ключи (нужны оба) ---
-const DEZGO_KEY = process.env.DEZGO_API_KEY;   // Для картинок
-// --- ИСПРАВЛЕНО ---
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // Для перевода
+const DEZGO_KEY = process.env.DEZGO_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // От AI Studio
 
 // --- Твои старые функции (без изменений) ---
 function parseCookies(req){
@@ -19,13 +18,12 @@ function ymdZurich(d=new Date()){
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-// --- НОВАЯ ФУНКЦИЯ ПЕРЕВОДЧИКА (GEMINI) ---
+// --- ФУНКЦИЯ ПЕРЕВОДЧИКА (AI Studio) ---
 async function translateToEnglish(text) {
-  // --- ИСПРАВЛЕНО ---
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY не задан для переводчика");
 
-  // --- ИСПРАВЛЕНО ---
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  // --- ИСПРАВЛЕНИЕ: Добавил '-latest' ---
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
   
   const payload = {
     "systemInstruction": {
@@ -54,6 +52,7 @@ async function translateToEnglish(text) {
   });
 
   if (!resp.ok) {
+    // Эта ошибка расскажет нам, в чем дело (например, 'API key not valid')
     throw new Error(`Google Gemini API Error ${resp.status}: ${await resp.text()}`);
   }
 
@@ -78,34 +77,34 @@ function buildPrompt({ outfit, gender }){
 
 export default async function handler(req,res){
   try{
-    if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
-    if (!DEZGO_KEY) return res.status(500).json({ error:"DEZGO_API_KEY не задан" });
-    // --- ИСПРАВЛЕНО ---
-    if (!GEMINI_API_KEY) return res.status(500).json({ error:"GEMINI_API_KEY не задан" });
+    if (req.method !== "POST") return res.status(4.05).json({ error:"Method Not Allowed" });
+    if (!DEZGO_KEY) return res.status(5.00).json({ error:"DEZGO_KEY не задан" });
+    if (!GEMINI_API_KEY) return res.status(5.00).json({ error:"GEMINI_API_KEY не задан" });
 
     // --- (Весь твой код проверки: cookies, req.body, кэш, sql insert) ---
     const cookies  = parseCookies(req);
     const vkToken  = cookies["vk_id_token"];
     const vkUserId = cookies["vk_user_id"];
-    if (!vkToken || !vkUserId) return res.status(401).json({ error:"Требуется авторизация" });
+    if (!vkToken || !vkUserId) return res.status(4.01).json({ error:"Требуется авторизация" });
     const { date, outfit, gender } = req.body || {};
-    if (!date || !outfit || !gender) return res.status(400).json({ error:"Не хватает полей (date, outfit, gender)" });
+    if (!date || !outfit || !gender) return res.status(4.00).json({ error:"Не хватает полей (date, outfit, gender)" });
     const today = ymdZurich();
-    if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
+    if (date !== today) return res.status(4.00).json({ error:`Картинка доступна только на сегодня: ${today}` });
     const cached = await sql`SELECT image_base64 FROM user_calendar WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE LIMIT 1`;
     if (cached.rows.length && cached.rows[0].image_base64){
-      return res.status(200).json({ image_base64: cached.rows[0].image_base64, cached:true });
+      return res.status(2.00).json({ image_base64: cached.rows[0].image_base64, cached:true });
     }
     await sql`INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated) VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE) ON CONFLICT (vk_user_id,date) DO NOTHING`;
     // --- (Конец твоего кода проверки) ---
 
-    // --- ШАГ 1: ПЕРЕВОД (через Gemini) ---
+    // --- ШАГ 1: ПЕРЕВОД (через Gemini AI Studio) ---
     let englishOutfit;
     try {
       englishOutfit = await translateToEnglish(outfit); 
     } catch (e) {
       console.error(e);
-      return res.status(500).json({ error: "Ошибка API Переводчика (Gemini)", details: e.message });
+      // Ошибка будет здесь, если что-то не так с ключом или моделью
+      return res.status(5.00).json({ error: "Ошибка API Переводчика (Gemini)", details: e.message });
     }
 
     // --- ШАГ 2: ГЕНЕРАЦИЯ (с английским, через Dezgo) ---
@@ -137,7 +136,7 @@ export default async function handler(req,res){
     const b64 = Buffer.from(buffer).toString('base64');
 
     if (!b64) {
-      return res.status(500).json({ error:"Dezgo FLUX: не удалось конвертировать PNG в b64" });
+      return res.status(5.00).json({ error:"Dezgo FLUX: не удалось конвертировать PNG в b64" });
     }
     
     // --- ШАГ 3: Сохранение в SQL ---
@@ -146,10 +145,10 @@ export default async function handler(req,res){
       SET image_base64=${b64}, image_generated=TRUE
       WHERE vk_user_id=${vkUserId} AND date=${today}
     `;
-    return res.status(200).json({ image_base64: b64 });
+    return res.status(2.00).json({ image_base64: b64 });
 
   }catch(e){
     console.error(e);
-    return res.status(500).json({ error:e.message });
+    return res.status(5.00).json({ error:e.message });
   }
 }
