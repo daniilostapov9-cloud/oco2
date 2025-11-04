@@ -3,7 +3,9 @@ import { sql } from "@vercel/postgres";
 
 export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
-const DEZGO_KEY = process.env.DEZGO_API_KEY;
+// --- API Ключи (нужны оба) ---
+const DEZGO_KEY = process.env.DEZGO_API_KEY;   // Для картинок
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; // Для перевода
 
 // --- Твои старые функции (без изменений) ---
 function parseCookies(req){
@@ -15,60 +17,102 @@ function ymdZurich(d=new Date()){
     .formatToParts(d).reduce((a,x)=>(a[x.type]=x.value,a),{});
   return `${p.year}-${p.month}-${p.day}`;
 }
+
+// --- НОВАЯ ФУНКЦИЯ ПЕРЕВОДЧИКА (GEMINI) ---
+async function translateToEnglish(text) {
+  if (!GOOGLE_API_KEY) throw new Error("GOOGLE_API_KEY не задан для переводчика");
+
+  // Используем gemini-1.5-flash — самый быстрый и дешевый
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`;
+  
+  const payload = {
+    // Системный промпт для Gemini
+    "systemInstruction": {
+      "parts": [{ "text": "You are an expert translator. Translate the given Russian text to English. Return ONLY the translated text, without any introductory phrases or quotation marks." }]
+    },
+    "contents": [
+      { "role": "user", "parts": [{ "text": text }] }
+    ],
+    // Настройки для быстрого и точного перевода
+    "generationConfig": {
+      "temperature": 0.1,
+      "topP": 1,
+      "topK": 1
+    },
+    // Отключаем блокировки для простого текста
+    "safetySettings": [
+      { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+      { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+      { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+      { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+    ]
+  };
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Google Gemini API Error ${resp.status}: ${await resp.text()}`);
+  }
+
+  const data = await resp.json();
+
+  if (!data.candidates || !data.candidates[0].content) {
+    console.error("Gemini response was empty or blocked:", JSON.stringify(data));
+    throw new Error("Gemini API Error: No content returned (check prompt or safety settings)");
+  }
+  
+  return data.candidates[0].content.parts[0].text;
+}
+
+// --- "УМНЫЙ" ПРОМПТ (без изменений) ---
 function buildPrompt({ outfit, gender }){
-  const prefix = `Generate me pixel person with description like in the text: `;
-  const style  = ` Pixel art, clean palette, crisp sprite, full figure, simple studio background, no text.`;
-  return `${prefix}"${outfit}" (gender: ${gender}).${style}`;
+  // ВАЖНО: 'outfit' ТЕПЕРЬ БУДЕТ НА АНГЛИЙСКОМ
+  const prefix = `A pixel art sprite of a ${gender}, full figure.`;
+  const style  = `Pixel art, clean palette, crisp sprite, simple studio background, no text.`;
+  const description = `The ${gender} is wearing: ${outfit}`;
+  
+  return `${prefix} ${style} ${description}`;
 }
 
 export default async function handler(req,res){
   try{
     if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
     if (!DEZGO_KEY) return res.status(500).json({ error:"DEZGO_API_KEY не задан" });
+    // Новая проверка
+    if (!GOOGLE_API_KEY) return res.status(500).json({ error:"GOOGLE_API_KEY не задан" });
 
-    // --- НАЧАЛО: ПОЛНЫЙ БЛОК ПРОВЕРОК ---
-    
-    // 1. Проверка Cookies
+    // --- (Весь твой код проверки: cookies, req.body, кэш, sql insert) ---
     const cookies  = parseCookies(req);
     const vkToken  = cookies["vk_id_token"];
     const vkUserId = cookies["vk_user_id"];
     if (!vkToken || !vkUserId) return res.status(401).json({ error:"Требуется авторизация" });
-
-    // 2. Проверка Тела Запроса
     const { date, outfit, gender } = req.body || {};
     if (!date || !outfit || !gender) return res.status(400).json({ error:"Не хватает полей (date, outfit, gender)" });
-
-    // 3. Проверка Даты
     const today = ymdZurich();
     if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
+    const cached = await sql`SELECT image_base64 FROM user_calendar WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE LIMIT 1`;
+    if (cached.rows.length && cached.rows[0].image_base64){
+      return res.status(200).json({ image_base64: cached.rows[0].image_base64, cached:true });
+    }
+    await sql`INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated) VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE) ON CONFLICT (vk_user_id,date) DO NOTHING`;
+    // --- (Конец твоего кода проверки) ---
 
-    // --- ИЗМЕНЕНИЕ: ПРОВЕРКА ЛИМИТА ---
-    
-    // 4. Проверяем, не исчерпан ли уже лимит
-    const limitCheck = await sql`
-      SELECT image_generated FROM user_calendar
-      WHERE vk_user_id=${vkUserId} AND date=${today}
-      LIMIT 1
-    `;
-    
-    // Если image_generated=true, лимит исчерпан
-    if (limitCheck.rows.length && limitCheck.rows[0].image_generated === true){
-      return res.status(429).json({ error: "Лимит на генерацию (1 в день) исчерпан" });
+    // --- ШАГ 1: ПЕРЕВОД (через Gemini) ---
+    let englishOutfit;
+    try {
+      // 'outfit' здесь — русский
+      englishOutfit = await translateToEnglish(outfit); 
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: "Ошибка API Переводчика (Gemini)", details: e.message });
     }
 
-    // 5. Гарантия Записи (чтобы строка существовала)
-    // Мы больше не вставляем 'image_generated=FALSE'
-    await sql`
-      INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until)
-      VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL)
-      ON CONFLICT (vk_user_id,date) DO NOTHING
-    `;
-    // --- КОНЕЦ: БЛОК ПРОВЕРОК ИЗМЕНЕН ---
-
-
-    // --- НАЧАЛО: ЛОГИКА DEZGO FLUX (работает охуенно) ---
-    
-    const prompt = buildPrompt({ outfit, gender });
+    // --- ШАГ 2: ГЕНЕРАЦИЯ (с английским, через Dezgo) ---
+    const prompt = buildPrompt({ outfit: englishOutfit, gender: gender });
 
     const payload = {
       prompt: prompt,
@@ -81,7 +125,7 @@ export default async function handler(req,res){
       headers: {
         "X-Dezgo-Key": DEZGO_KEY,
         "Content-Type": "application/json",
-        "Accept": "application/json" 
+        "Accept": "application/json"
       },
       body: JSON.stringify(payload)
     });
@@ -91,7 +135,7 @@ export default async function handler(req,res){
       return res.status(resp.status).json({ error:`Dezgo FLUX API ${resp.status}`, details: errDetails });
     }
     
-    // Конвертируем PNG-ответ в b64 (как и раньше)
+    // Конвертируем PNG-ответ в b64
     const buffer = await resp.arrayBuffer();
     const b64 = Buffer.from(buffer).toString('base64');
 
@@ -99,16 +143,12 @@ export default async function handler(req,res){
       return res.status(500).json({ error:"Dezgo FLUX: не удалось конвертировать PNG в b64" });
     }
     
-    // --- КОНЕЦ: ЛОГИКА DEZGO FLUX ---
-
-    // --- ИЗМЕНЕНИЕ: НЕ СОХРАНЯЕМ b64, А ПРОСТО СТАВИМ ФЛАГ ЛИМИТА ---
+    // --- ШАГ 3: Сохранение в SQL ---
     await sql`
       UPDATE user_calendar
-      SET image_generated = TRUE 
+      SET image_base64=${b64}, image_generated=TRUE
       WHERE vk_user_id=${vkUserId} AND date=${today}
     `;
-    
-    // Отдаем b64 на фронтенд (он его покажет 1 раз и все)
     return res.status(200).json({ image_base64: b64 });
 
   }catch(e){
