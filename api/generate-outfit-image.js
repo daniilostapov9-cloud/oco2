@@ -18,19 +18,28 @@ function ymdZurich(d=new Date()){
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-// --- ФУНКЦИЯ ПЕРЕВОДЧИКА (AI Studio) ---
+// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ПЕРЕВОДЧИКА (AI Studio, v1 API) ---
 async function translateToEnglish(text) {
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY не задан для переводчика");
 
-  // --- ИСПРАВЛЕНИЕ: Добавил '-latest' ---
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+  // --- ИСПРАВЛЕНИЕ: Используем стабильный 'v1' API ---
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
   
   const payload = {
-    "systemInstruction": {
-      "parts": [{ "text": "You are an expert translator. Translate the given Russian text to English. Return ONLY the translated text, without any introductory phrases or quotation marks." }]
-    },
+    // 'v1' API не использует 'systemInstruction', встраиваем инструкцию сюда
     "contents": [
-      { "role": "user", "parts": [{ "text": text }] }
+      { 
+        "role": "user",
+        "parts": [{ "text": "You are an expert translator. Translate the following Russian text to English. Return ONLY the translated text, without any introductory phrases or quotation marks." }]
+      },
+      {
+        "role": "model",
+        "parts": [{ "text": "OK." }] // "Пример" для модели, чтобы она поняла формат
+      },
+      {
+        "role": "user",
+        "parts": [{ "text": text }] // Текст, который нужно перевести
+      }
     ],
     "generationConfig": {
       "temperature": 0.1,
@@ -56,6 +65,7 @@ async function translateToEnglish(text) {
     throw new Error(`Google Gemini API Error ${resp.status}: ${await resp.text()}`);
   }
 
+  // Здесь была ошибка 'Unexpected token 'A''
   const data = await resp.json();
 
   if (!data.candidates || !data.candidates[0].content) {
@@ -65,6 +75,8 @@ async function translateToEnglish(text) {
   
   return data.candidates[0].content.parts[0].text;
 }
+// --- КОНЕЦ ИСПРАВЛЕННОЙ ФУНКЦИИ ---
+
 
 // --- "УМНЫЙ" ПРОМПТ (без изменений) ---
 function buildPrompt({ outfit, gender }){
@@ -77,22 +89,22 @@ function buildPrompt({ outfit, gender }){
 
 export default async function handler(req,res){
   try{
-    if (req.method !== "POST") return res.status(4.05).json({ error:"Method Not Allowed" });
-    if (!DEZGO_KEY) return res.status(5.00).json({ error:"DEZGO_KEY не задан" });
-    if (!GEMINI_API_KEY) return res.status(5.00).json({ error:"GEMINI_API_KEY не задан" });
+    if (req.method !== "POST") return res.status(405).json({ error:"Method NotAllowed" });
+    if (!DEZGO_KEY) return res.status(500).json({ error:"DEZGO_KEY не задан" });
+    if (!GEMINI_API_KEY) return res.status(500).json({ error:"GEMINI_API_KEY не задан" });
 
     // --- (Весь твой код проверки: cookies, req.body, кэш, sql insert) ---
     const cookies  = parseCookies(req);
     const vkToken  = cookies["vk_id_token"];
     const vkUserId = cookies["vk_user_id"];
-    if (!vkToken || !vkUserId) return res.status(4.01).json({ error:"Требуется авторизация" });
+    if (!vkToken || !vkUserId) return res.status(401).json({ error:"Требуется авторизация" });
     const { date, outfit, gender } = req.body || {};
-    if (!date || !outfit || !gender) return res.status(4.00).json({ error:"Не хватает полей (date, outfit, gender)" });
+    if (!date || !outfit || !gender) return res.status(400).json({ error:"Не хватает полей (date, outfit, gender)" });
     const today = ymdZurich();
-    if (date !== today) return res.status(4.00).json({ error:`Картинка доступна только на сегодня: ${today}` });
+    if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
     const cached = await sql`SELECT image_base64 FROM user_calendar WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE LIMIT 1`;
     if (cached.rows.length && cached.rows[0].image_base64){
-      return res.status(2.00).json({ image_base64: cached.rows[0].image_base64, cached:true });
+      return res.status(200).json({ image_base64: cached.rows[0].image_base64, cached:true });
     }
     await sql`INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated) VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE) ON CONFLICT (vk_user_id,date) DO NOTHING`;
     // --- (Конец твоего кода проверки) ---
@@ -104,7 +116,7 @@ export default async function handler(req,res){
     } catch (e) {
       console.error(e);
       // Ошибка будет здесь, если что-то не так с ключом или моделью
-      return res.status(5.00).json({ error: "Ошибка API Переводчика (Gemini)", details: e.message });
+      return res.status(500).json({ error: "Ошибка API Переводчика (Gemini)", details: e.message });
     }
 
     // --- ШАГ 2: ГЕНЕРАЦИЯ (с английским, через Dezgo) ---
@@ -136,7 +148,7 @@ export default async function handler(req,res){
     const b64 = Buffer.from(buffer).toString('base64');
 
     if (!b64) {
-      return res.status(5.00).json({ error:"Dezgo FLUX: не удалось конвертировать PNG в b64" });
+      return res.status(500).json({ error:"Dezgo FLUX: не удалось конвертировать PNG в b64" });
     }
     
     // --- ШАГ 3: Сохранение в SQL ---
@@ -145,10 +157,11 @@ export default async function handler(req,res){
       SET image_base64=${b64}, image_generated=TRUE
       WHERE vk_user_id=${vkUserId} AND date=${today}
     `;
-    return res.status(2.00).json({ image_base64: b64 });
+    return res.status(200).json({ image_base64: b64 });
 
   }catch(e){
     console.error(e);
-    return res.status(5.00).json({ error:e.message });
+    // Сюда мы больше не должны попадать
+    return res.status(500).json({ error:e.message });
   }
 }
