@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Модный Календарь</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
-  
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; background:#0a0a0a; color:#fff; }
@@ -44,14 +42,33 @@
     .chip.active{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%)}
     .ok-btn{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); box-shadow:0 4px 20px rgba(124,58,237,.4)}
     
-    /* Доп. стили, чтобы .innerHTML выглядел хорошо */
     #outfitText strong { color: #fff; font-weight: 600; }
-    #outfitText p { margin: 0; } /* marked может оборачивать в <p>, убираем отступы */
+    #outfitText p { margin: 0; } 
+    
+    /* --- ИЗМЕНЕНИЕ: CSS для WEB-рекламы (из index.html) --- */
+    .ad-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:50}
+    .ad-box{width:min(420px,92vw);min-height:280px;background:#111;border-radius:16px;padding:12px;position:relative}
+    .ad-close{position:absolute;top:12px;right:16px;background:#222;border:0;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+    /* --- КОНЕЦ ИЗМЕНЕНИЯ --- */
   </style>
-</head>
+
+  <script>
+    (function(w,d,n,s,t){w[n]=w[n]||[];t=d.getElementsByTagName("script")[0];
+      s=d.createElement("script");s.async=true;s.src="https://yandex.ru/ads/system/context.js";
+      t.parentNode.insertBefore(s,t);
+    })(window,document,"yandexContextAsyncCallbacks");
+  </script>
+  </head>
+
 <body class="min-h-screen">
   <div class="gradient-bg fixed top-0 left-0 right-0 h-[220px]"></div>
 
+  <div id="ad-overlay" class="ad-overlay">
+    <div class="ad-box">
+      <button id="ad-close" class="ad-close">Закрыть ✖</button>
+      <div id="ya-rtb-interstitial-calendar"></div>
+    </div>
+  </div>
   <div class="relative z-10 max-w-[680px] mx-auto px-5 pb-16">
     <header class="pt-6">
       <div class="flex items-center justify-between">
@@ -63,19 +80,9 @@
     </header>
 
     <section class="cal-hero mt-6 p-5" id="calRoot" style="--bg:url('/img/leaf.jpg')">
-      <div class="flex items-end justify-between mb-2">
-        <div class="cal-year" id="yearLabel"></div>
-      </div>
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="cal-month text-3xl font-semibold" id="monthLabel"></h2>
-        <div class="text-white/80 text-sm" id="todayLabel"></div>
-      </div>
-
-      <div class="grid7 text-xs mb-2">
-        <div class="wd text-center">ПН</div><div class="wd text-center">ВТ</div><div class="wd text-center">СР</div>
-        <div class="wd text-center">ЧТ</div><div class="wd text-center">ПТ</div><div class="wd text-center">СБ</div><div class="wd text-center">ВС</div>
-      </div>
-
+      <div class="flex items-end justify-between mb-2"> <div class="cal-year" id="yearLabel"></div> </div>
+      <div class="flex items-center justify-between mb-2"> <h2 class="cal-month text-3xl font-semibold" id="monthLabel"></h2> <div class="text-white/80 text-sm" id="todayLabel"></div> </div>
+      <div class="grid7 text-xs mb-2"> <div class="wd text-center">ПН</div><div class="wd text-center">ВТ</div><div class="wd text-center">СР</div> <div class="wd text-center">ЧТ</div><div class="wd text-center">ПТ</div><div class="wd text-center">СБ</div><div class="wd text-center">ВС</div> </div>
       <div id="calGrid" class="grid7"></div>
       <p class="text-xs text-white/70 mt-3">Активен только <b>сегодняшний</b> день. Нажми на сегодняшний день чтобы пройти check-in ✓.</p>
     </section>
@@ -83,36 +90,22 @@
     <section id="picker" class="mt-6 bg-[#141414] rounded-2xl p-4 shadow-xl hidden">
       <h3 class="font-semibold mb-3">Какое у тебя настроение <b>сегодня</b>?</h3>
       <div id="moods" class="flex flex-wrap gap-2"></div>
-
       <h3 class="font-semibold mt-5 mb-3">Выбери пол</h3>
-      <div id="genders" class="flex gap-2">
-        <button data-gender="парень" class="chip">Парень</button>
-        <button data-gender="девушка" class="chip">Девушка</button>
-      </div>
-
-      <button id="genBtn" class="ok-btn mt-5 w-full py-3 rounded-xl font-semibold disabled opacity-50" disabled>
-        Подобрать образ
-      </button>
+      <div id="genders" class="flex gap-2"> <button data-gender="парень" class="chip">Парень</button> <button data-gender="девушка" class="chip">Девушка</button> </div>
+      <button id="genBtn" class="ok-btn mt-5 w-full py-3 rounded-xl font-semibold disabled opacity-50" disabled> Подобрать образ </button>
       <div id="lockNote" class="text-xs text-emerald-300 mt-2 hidden"></div>
     </section>
 
     <section id="resultCard" class="mt-6 bg-[#141414] rounded-2xl p-4 shadow-xl hidden">
       <div class="flex gap-3 items-start">
-        <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-             style="background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%);">👗</div>
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%);">👗</div>
         <div class="flex-1">
           <h3 class="font-semibold mb-2">Образ на сегодня</h3>
           <div id="outfitText" class="text-white/80 text-sm leading-relaxed whitespace-pre-line"></div>
-
           <div id="previewWrap" class="mt-4 hidden">
-            <button id="previewBtn" class="w-full py-2 rounded-xl font-semibold border border-white/10 hover:bg-white/5">
-              Показать «Пример образа» (пиксель-арт)
-            </button>
-            <div id="previewImgBox" class="mt-3 hidden">
-              <img id="previewImg" class="w-full rounded-xl" alt="Пример образа">
-            </div>
+            <button id="previewBtn" class="w-full py-2 rounded-xl font-semibold border border-white/10 hover:bg-white/5"> Показать «Пример образа» (пиксель-арт) </button>
+            <div id="previewImgBox" class="mt-3 hidden"> <img id="previewImg" class="w-full rounded-xl" alt="Пример образа"> </div>
           </div>
-
           <button id="confirmBtn" class="ok-btn mt-4 w-full py-3 rounded-xl font-semibold">Окей</button>
         </div>
       </div>
@@ -125,7 +118,7 @@
     const vkToken = getCookie('vk_id_token'); const vkUserId = getCookie('vk_user_id');
     if (!vkToken || !vkUserId) { const hint = document.getElementById('auth-hint'); hint.classList.remove('hidden'); hint.textContent='Войдите через приложение ОСО.'; }
 
-    // ===== даты
+    // ===== даты (без изменений)
     const tz='Europe/Zurich';
     const fmtMonth=(d)=>new Intl.DateTimeFormat('ru-RU',{timeZone:tz,month:'long'}).format(d).toUpperCase();
     const fmtYear =(d)=>new Intl.DateTimeFormat('ru-RU',{timeZone:tz,year:'numeric'}).format(d);
@@ -133,21 +126,19 @@
     const ymd     =(d)=>new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
     const now=new Date(); const todayYMD=ymd(now);
 
-    // ===== UI state
+    // ===== UI state (без изменений)
     const MOODS=['радостное','грустное','тревожное','раздражительное','виноватое','расслабленное','возбужденное','скучное','творческое'];
     const moodsWrap=document.getElementById('moods'); let pickedMood=null, pickedGender=null, pickedDate=null, generatedOutfit=null;
-
     MOODS.forEach(m=>{ const b=document.createElement('button'); b.className='chip'; b.textContent=m.charAt(0).toUpperCase()+m.slice(1);
       b.onclick=()=>{[...moodsWrap.children].forEach(c=>c.classList.remove('active')); b.classList.add('active'); pickedMood=m; maybeEnableGen();}; moodsWrap.appendChild(b); });
     document.querySelectorAll('#genders .chip').forEach(btn=>{ btn.onclick=()=>{document.querySelectorAll('#genders .chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active'); pickedGender=btn.dataset.gender; maybeEnableGen();}; });
-
     function maybeEnableGen(){ const g=document.getElementById('genBtn'); if(pickedMood&&pickedGender&&pickedDate===todayYMD){ g.disabled=false; g.classList.remove('disabled','opacity-50'); } else { g.disabled=true; g.classList.add('disabled','opacity-50'); } }
 
-    // ===== серверные отметки (галочки)
+    // ===== серверные отметки (без изменений)
     let completed={};
     async function fetchCompleted(year,month){ try{ const r=await fetch(`/api/calendar-get?year=${year}&month=${month}`,{credentials:'include'}); if(r.ok){(await r.json()).entries.forEach(e=>completed[e.date]=e.confirmed);} }catch(e){} }
 
-    // ===== рендер сетки (6x7)
+    // ===== рендер сетки (без изменений)
     async function renderCalendar(){
       const calGrid=document.getElementById('calGrid'); const monthLabel=document.getElementById('monthLabel');
       const yearLabel=document.getElementById('yearLabel'); const todayLabel=document.getElementById('todayLabel');
@@ -172,61 +163,170 @@
       const need=(cellsNow+tail<42)?42-cellsNow:tail; for(let i=1;i<=need;i++){ const ph=document.createElement('button'); ph.className='day other disabled'; ph.disabled=true; ph.innerHTML=`<span class="num">${i}</span>`; calGrid.appendChild(ph); }
     }
 
-    // ===== генерация (анти-спам + предпросмотр картинки)
+    // ===== DOM-элементы (без изменений)
     const genBtn=document.getElementById('genBtn'); const resultCard=document.getElementById('resultCard'); const outfitTextEl=document.getElementById('outfitText');
     const confirmBtn=document.getElementById('confirmBtn'); const lockNote=document.getElementById('lockNote');
     const previewWrap=document.getElementById('previewWrap'); const previewBtn=document.getElementById('previewBtn');
     const previewImgBox=document.getElementById('previewImgBox'); const previewImg=document.getElementById('previewImg');
 
-    genBtn.addEventListener('click', async ()=>{
-      genBtn.disabled=true; genBtn.textContent='Подбираю...';
-      lockNote.classList.add('hidden'); lockNote.textContent='';
-      try{
-        const r=await fetch('/api/generate-outfit',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-          body:JSON.stringify({ date:pickedDate, mood:pickedMood, gender:pickedGender }) });
-        const data=await r.json();
-        if(!r.ok) throw new Error(data.error||'Ошибка генерации');
-        
-        // --- ИЗМЕНЕНИЕ 2: Используем innerHTML и marked.parse() ---
-        generatedOutfit=data.outfit;
-        outfitTextEl.innerHTML = marked.parse(generatedOutfit);
-        // --------------------------------------------------------
-        
-        resultCard.classList.remove('hidden'); resultCard.scrollIntoView({behavior:'smooth'});
-        previewWrap.classList.remove('hidden');   // показываем кнопку «Пример образа»
-        if(data.locked_until_human){              // покажем, что сессия зафиксирована
-          lockNote.textContent = 'Генерация зафиксирована до ' + data.locked_until_human + '. Повторные клики не создадут новый образ.';
-          lockNote.classList.remove('hidden');
-        }
-      }catch(e){ alert(e.message); }
-      finally{ genBtn.textContent='Подобрать образ'; maybeEnableGen(); }
+
+    // --- ИЗМЕНЕНИЕ: Логика вынесена в отдельные функции ---
+
+    /**
+     * Эта функция вызывается ПОСЛЕ рекламы (нативной или веб)
+     * для генерации ОБРАЗА
+     */
+    async function runGenerateOutfit() {
+      // Показываем WEB-рекламу (только если мы в браузере)
+      // В WebView эта функция просто вызовет onDone()
+      showInterstitialAd(async () => {
+        // Этот код выполнится ПОСЛЕ закрытия web-рекламы
+        // (или сразу, если мы в WebView)
+        genBtn.disabled = true; genBtn.textContent = 'Подбираю...';
+        lockNote.classList.add('hidden'); lockNote.textContent = '';
+        try {
+          const r = await fetch('/api/generate-outfit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ date: pickedDate, mood: pickedMood, gender: pickedGender })
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || 'Ошибка генерации');
+          
+          generatedOutfit = data.outfit;
+          outfitTextEl.innerHTML = marked.parse(generatedOutfit); // (используем marked, как и раньше)
+          
+          resultCard.classList.remove('hidden'); resultCard.scrollIntoView({ behavior: 'smooth' });
+          previewWrap.classList.remove('hidden');   
+          if (data.locked_until_human) {              
+            lockNote.textContent = 'Генерация зафиксирована до ' + data.locked_until_human + '.';
+            lockNote.classList.remove('hidden');
+          }
+        } catch (e) { alert(e.message); }
+        finally { genBtn.textContent = 'Подобрать образ'; maybeEnableGen(); }
+      });
+    }
+
+    /**
+     * Эта функция вызывается ПОСЛЕ рекламы (нативной или веб)
+     * для генерации КАРТИНКИ
+     */
+    async function runGenerateImage() {
+      // Показываем WEB-рекламу (только если мы в браузере)
+      showInterstitialAd(async () => {
+        previewBtn.disabled = true; previewBtn.textContent = 'Рисую пример...';
+        try {
+          const r = await fetch('/api/generate-outfit-image', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ date: pickedDate, outfit: generatedOutfit, gender: pickedGender })
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || 'Не удалось получить изображение');
+          previewImg.src = 'data:image/png;base64,' + data.image_base64;
+          previewImgBox.classList.remove('hidden');
+        } catch (e) { alert(e.message); }
+        finally { previewBtn.disabled = false; previewBtn.textContent = 'Показать «Пример образа» (пиксель-арт)'; }
+      });
+    }
+
+    // --- ИЗМЕНЕНИЕ: Новые слушатели кнопок (теперь они ТРИГГЕРЫ) ---
+
+    genBtn.addEventListener('click', () => {
+      if (isWebView()) {
+        // В WebView: переходим по URL, чтобы MainActivity показала НАТИВНУЮ рекламу
+        window.location.href = '/trigger-gen-outfit';
+      } else {
+        // В браузере: сразу вызываем функцию (которая сама покажет WEB-рекламу)
+        runGenerateOutfit();
+      }
     });
 
-    previewBtn?.addEventListener('click', async ()=>{
-      previewBtn.disabled=true; previewBtn.textContent='Рисую пример...';
-      try{
-        const r=await fetch('/api/generate-outfit-image',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-          body:JSON.stringify({ date:pickedDate, outfit:generatedOutfit, gender:pickedGender }) });
-        const data=await r.json();
-        if(!r.ok) throw new Error(data.error || 'Не удалось получить изображение');
-        previewImg.src = 'data:image/png;base64,' + data.image_base64;
-        previewImgBox.classList.remove('hidden');
-      }catch(e){ alert(e.message); }
-      finally{ previewBtn.disabled=false; previewBtn.textContent='Показать «Пример образа» (пиксель-арт)'; }
+    previewBtn?.addEventListener('click', () => {
+      if (isWebView()) {
+        // В WebView: переходим по URL для НАТИВНОЙ рекламы
+        window.location.href = '/trigger-gen-image';
+      } else {
+        // В браузере: сразу вызываем функцию (которая сама покажет WEB-рекламу)
+        runGenerateImage();
+      }
     });
+    
+    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
+
+    // ===== Кнопка "Окей" (без изменений) =====
     confirmBtn.addEventListener('click', async ()=>{
       confirmBtn.disabled=true; confirmBtn.textContent='Сохраняю...';
       try{
         const r=await fetch('/api/calendar-set',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-          // Важно: мы отправляем НАЗАД в базу оригинальный (generatedOutfit) текст с Markdown,
-          // а не HTML. Это правильно.
           body:JSON.stringify({ date:pickedDate, mood:pickedMood, gender:pickedGender, outfit:generatedOutfit }) });
         const data=await r.json(); if(!r.ok) throw new Error(data.error||'Ошибка сохранения');
         alert('Готово! День отмечен.'); location.reload();
       }catch(e){ alert(e.message); }
       finally{ confirmBtn.disabled=false; confirmBtn.textContent='Окей'; }
     });
+    
+    
+    // --- ИЗМЕНЕНИЕ: Добавлены JS-функции для WEB-рекламы (из index.html) ---
+    
+    // !! ВАЖНО: Укажи здесь ID РТБ-блока для WEB-версии (interstitial)
+    const YANDEX_WEB_BLOCK_ID_CALENDAR = 'R-A-XXXXXXX-2'; // <-- ЗАМЕНИ НА СВОЙ ID БЛОКА
+
+    function isWebView(){
+      const ua = navigator.userAgent || '';
+      return /\bwv\b/i.test(ua);
+    }
+    
+    /**
+     * Показывает WEB-рекламу (для браузера, не WebView)
+     * @param {function} onDone - Функция, которая выполнится ПОСЛЕ закрытия рекламы.
+     */
+    function showInterstitialAd(onDone) {
+      // Если ID не указан, или мы в WebView (там нативная реклама),
+      // то просто сразу выполняем действие (onDone)
+      if (!YANDEX_WEB_BLOCK_ID_CALENDAR || YANDEX_WEB_BLOCK_ID_CALENDAR.includes('XXXXXX')) { 
+        onDone(); 
+        return; 
+      }
+      if (isWebView()) { 
+        onDone(); 
+        return; 
+      } 
+
+      const overlay = document.getElementById('ad-overlay');
+      const closeBtn = document.getElementById('ad-close');
+      if (!overlay || !closeBtn) { 
+        console.warn('Ad overlay HTML not found');
+        onDone(); 
+        return; 
+      }
+
+      let adClosed = false;
+      const closeAd = () => {
+        if (adClosed) return;
+        adClosed = true;
+        overlay.style.display = 'none';
+        document.getElementById('ya-rtb-interstitial-calendar').innerHTML = ''; // Чистим
+        onDone(); 
+      };
+      
+      closeBtn.onclick = closeAd;
+      overlay.style.display = 'flex';
+
+      window.yandexContextAsyncCallbacks = window.yandexContextAsyncCallbacks || [];
+      window.yandexContextAsyncCallbacks.push(() => {
+        try {
+          Ya.Context.AdvManager.render({
+            blockId: YANDEX_WEB_BLOCK_ID_CALENDAR,
+            renderTo: 'ya-rtb-interstitial-calendar',
+            onClose: closeAd // Вызываем наш обработчик при закрытии
+          });
+        } catch(e) { 
+          console.warn('Yandex Ads error', e);
+          closeAd(); // Если рендер упал, все равно продолжаем
+        }
+      });
+    }
+    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
     renderCalendar();
   </script>
