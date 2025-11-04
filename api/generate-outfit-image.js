@@ -5,7 +5,7 @@ export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
 const LZ_BASE   = process.env.LAOZHANG_BASE  || "https://api.laozhang.ai/v1";
 const LZ_KEY    = process.env.LAOZHANG_API_KEY;
-const LZ_MODEL  = process.env.LAOZHANG_MODEL || "gpt-image-1"; // Как вы и хотели
+const LZ_MODEL  = process.env.LAOZHANG_MODEL || "dall-e-2"; // Как вы и хотели
 const LZ_SIZE   = process.env.LAOZHANG_SIZE  || "512x512";     // Совместимо с gpt-image-1
 // const LZ_QUALITY= process.env.LAOZHANG_QUALITY || "low"; // Эту строку не используем
 
