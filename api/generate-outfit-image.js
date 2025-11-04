@@ -6,7 +6,11 @@ export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 const DEZGO_KEY  = process.env.DEZGO_API_KEY;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-// ----- utils -----
+// === используем ту же модель и тот же формат вызова, что и в твоём generate-outfit.js ===
+const API_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
+
+// ---------------- utils ----------------
 function parseCookies(req){
   const h = req.headers.cookie || "";
   return Object.fromEntries(
@@ -30,73 +34,16 @@ function simpleGenderToEn(rusGenderText=""){
   return "male";
 }
 
-// ----- Gemini -----
-const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
-// Попробуем несколько моделей по очереди:
-const MODEL_CANDIDATES = [
-  "gemini-1.5-flash-8b",
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-flash",
-  "gemini-1.5-pro-latest",
-  "gemini-1.5-pro",
-  "gemini-pro"
-];
+// ---------------- Gemini (та же модель) ----------------
+function systemInstruction() {
+  return `You are a translator-normalizer for AI image prompts.
 
-async function callGemini(promptText){
-  if (!GEMINI_KEY) throw Object.assign(new Error("Gemini key missing"), { code: "NO_KEY" });
+INPUT:
+- gender_ru: "парень" or "девушка"
+- outfit_ru_raw: free-form outfit description in Russian.
 
-  const body = {
-    contents: [{ role: "user", parts: [{ text: promptText }]}],
-    generationConfig: {
-      temperature: 0.1,
-      topP: 0.2,
-      topK: 1,
-      maxOutputTokens: 256,
-      responseMimeType: "application/json"
-    }
-  };
-
-  let lastErr;
-  for (const model of MODEL_CANDIDATES){
-    try{
-      const resp = await fetch(`${GEMINI_ENDPOINT}/${model}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`,{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(body)
-      });
-      if (!resp.ok){
-        const text = await resp.text().catch(()=> "");
-        // если именно 404 — пробуем следующую модель
-        if (resp.status===404) { lastErr = new Error(`Gemini 404 on ${model}: ${text?.slice(0,300)}`); continue; }
-        throw new Error(`Gemini ${resp.status} on ${model}: ${text?.slice(0,300)}`);
-      }
-      const data = await resp.json();
-      const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      return { model, raw };
-    }catch(e){
-      lastErr = e;
-      // пробуем следующую
-      continue;
-    }
-  }
-  throw lastErr || new Error("Gemini: no models worked");
-}
-
-async function translateWithGemini({ genderRu, outfitRu }){
-  // Fallback, если нет ключа
-  if (!GEMINI_KEY) {
-    return {
-      gender_en: simpleGenderToEn(genderRu),
-      outfit_ru: (outfitRu||"").trim().toLowerCase(),
-      outfit_en: (outfitRu||"").trim().toLowerCase()
-    };
-  }
-
-  const systemInstruction =
-`You are a translator and normalizer for AI image prompts.
-Input: gender in Russian ("парень" or "девушка") and outfit description in Russian.
-
-Output ONLY valid JSON:
+TASK:
+Return ONLY valid JSON with this schema (no extra text):
 {
   "gender_en": "male" | "female",
   "outfit_en": "comma-separated, short, lowercase clothing/style attributes in English",
@@ -104,37 +51,68 @@ Output ONLY valid JSON:
 }
 
 Rules:
-- gender_en must be "male" or "female".
-- Terse attributes (e.g., "black t-shirt, blue jeans, white sneakers, leather jacket").
-- No verbs/sentences. No brands unless present. No NSFW; replace with safe generic terms.
-`;
-
-  const userContent =
-`gender_ru: ${String(genderRu||"").trim()}
-outfit_ru_raw: ${String(outfitRu||"").trim()}`;
-
-  const { raw, model } = await callGemini(systemInstruction + "\n---\n" + userContent);
-
-  let parsed;
-  try{
-    parsed = JSON.parse(raw);
-  }catch{
-    const m = raw.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error(`Gemini (${model}) JSON parse error: ${raw.slice(0,200)}`);
-    parsed = JSON.parse(m[0]);
-  }
-
-  const gender_en = (parsed.gender_en==="female"||parsed.gender_en==="male")
-    ? parsed.gender_en
-    : simpleGenderToEn(genderRu);
-
-  const outfit_en = String(parsed.outfit_en||"").trim() || String(outfitRu||"").trim().toLowerCase();
-  const outfit_ru = String(parsed.outfit_ru||"").trim() || String(outfitRu||"").trim().toLowerCase();
-
-  return { gender_en, outfit_en, outfit_ru };
+- gender_en must be exactly "male" or "female".
+- Attributes are terse nouns/adjectives, no verbs/sentences (e.g., "black t-shirt, blue jeans, white sneakers, leather jacket").
+- Keep brands only if present. Replace NSFW with safe generic clothing.`;
 }
 
-// ----- Prompt for Dezgo -----
+async function callGeminiJSON(userText){
+  if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY не задан");
+
+  const payload = {
+    contents: [{ role: "user", parts: [{ text: userText }]}],
+    systemInstruction: { parts: [{ text: systemInstruction() }] },
+  };
+
+  const r = await fetch(`${API_URL}?key=${encodeURIComponent(GEMINI_KEY)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const b = await r.text().catch(()=> "");
+    throw new Error(`Google API ${r.status}: ${b.slice(0, 300)}`);
+  }
+  const j = await r.json();
+  const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  if (!raw) throw new Error("Gemini: пустой ответ");
+  // Пытаемся распарсить JSON. Если модель прислала текст с подсветкой — выщипываем {...}
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("Gemini: не удалось распарсить JSON");
+    return JSON.parse(m[0]);
+  }
+}
+
+async function translateWithGemini({ genderRu, outfitRu }){
+  try{
+    const userText =
+`gender_ru: ${String(genderRu||"").trim()}
+outfit_ru_raw: ${String(outfitRu||"").trim()}`;
+    const parsed = await callGeminiJSON(userText);
+
+    const gender_en = (parsed.gender_en==="female"||parsed.gender_en==="male")
+      ? parsed.gender_en
+      : simpleGenderToEn(genderRu);
+
+    const outfit_en = String(parsed.outfit_en||"").trim() || String(outfitRu||"").trim().toLowerCase();
+    const outfit_ru = String(parsed.outfit_ru||"").trim() || String(outfitRu||"").trim().toLowerCase();
+
+    return { gender_en, outfit_en, outfit_ru };
+  }catch(e){
+    // надёжный фоллбек без Gemini (на всякий случай)
+    return {
+      gender_en: simpleGenderToEn(genderRu),
+      outfit_ru: String(outfitRu||"").trim().toLowerCase(),
+      outfit_en: String(outfitRu||"").trim().toLowerCase(),
+      _fallback: true
+    };
+  }
+}
+
+// ---------------- Dezgo prompt ----------------
 function buildPrompt({ outfit_en, gender_en, alsoRu }){
   const style  = "pixel art, crisp sprite, full figure, simple studio background, no text, clean palette.";
   const gender = gender_en === "female" ? "female" : "male";
@@ -142,7 +120,7 @@ function buildPrompt({ outfit_en, gender_en, alsoRu }){
   return `full-body ${gender} character wearing ${outfit_en}. ${style}${ruNote}`;
 }
 
-// ----- Handler -----
+// ---------------- handler ----------------
 export default async function handler(req,res){
   try{
     if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
@@ -159,30 +137,35 @@ export default async function handler(req,res){
     const today = ymdZurich();
     if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
 
+    // кэш
     const cached = await sql`
       SELECT image_base64 FROM user_calendar
-      WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE
-      LIMIT 1
+       WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE
+       LIMIT 1
     `;
     if (cached.rows.length && cached.rows[0].image_base64){
       return res.status(200).json({ image_base64: cached.rows[0].image_base64, cached:true });
     }
 
+    // гарантируем строку дня
     await sql`
       INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated)
       VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE)
       ON CONFLICT (vk_user_id,date) DO NOTHING
     `;
 
-    const norm = await translateWithGemini({ genderRu: gender, outfitRu: outfit });
+    // перевод+нормализация (модель как в твоём коде)
+    const norm = await translateWithGemini({
+      genderRu: gender,
+      outfitRu: outfit
+    });
 
+    // сборка промпта и вызов Dezgo
     const prompt = buildPrompt({
       outfit_en: norm.outfit_en,
       gender_en: norm.gender_en,
       alsoRu: norm.outfit_ru
     });
-
-    const payload = { prompt, width: 1024, height: 1024 };
 
     const resp = await fetch("https://api.dezgo.com/text2image_flux", {
       method: "POST",
@@ -191,7 +174,7 @@ export default async function handler(req,res){
         "Content-Type": "application/json",
         "Accept": "application/json"
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ prompt, width: 1024, height: 1024 })
     });
 
     if (!resp.ok) {
