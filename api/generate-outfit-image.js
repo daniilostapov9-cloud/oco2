@@ -5,14 +5,11 @@ export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
 const DEZGO_KEY = process.env.DEZGO_API_KEY;
 
-// --- УБЕДИСЬ, ЧТО ЭТА ФУНКЦИЯ СКОПИРОВАНА ВЕРНО ---
+// --- Твои старые функции (без изменений) ---
 function parseCookies(req){
   const h = req.headers.cookie || "";
-  // ОШИБКА БЫЛА ЗДЕСЬ: 'return' был пропущен
   return Object.fromEntries(h.split(";").map(v=>v.trim().split("=").map(decodeURIComponent)).filter(p=>p[0]));
 }
-// --- КОНЕЦ ФУНКЦИИ ---
-
 function ymdZurich(d=new Date()){
   const p = new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/Zurich",year:"numeric",month:"2-digit",day:"2-digit"})
     .formatToParts(d).reduce((a,x)=>(a[x.type]=x.value,a),{});
@@ -31,8 +28,8 @@ export default async function handler(req,res){
 
     // --- НАЧАЛО: ПОЛНЫЙ БЛОК ПРОВЕРОК ---
     
-    // 1. Проверка Cookies (ЗДЕСЬ БЫЛА ОШИБКА)
-    const cookies  = parseCookies(req); // Эта функция возвращала undefined
+    // 1. Проверка Cookies
+    const cookies  = parseCookies(req);
     const vkToken  = cookies["vk_id_token"];
     const vkUserId = cookies["vk_user_id"];
     if (!vkToken || !vkUserId) return res.status(401).json({ error:"Требуется авторизация" });
@@ -45,18 +42,31 @@ export default async function handler(req,res){
     const today = ymdZurich();
     if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
 
-    // 4. Проверка Кэша
-    const cached = await sql`SELECT image_base64 FROM user_calendar WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE LIMIT 1`;
-    if (cached.rows.length && cached.rows[0].image_base64){
-      return res.status(200).json({ image_base64: cached.rows[0].image_base64, cached:true });
+    // --- ИЗМЕНЕНИЕ: ПРОВЕРКА ЛИМИТА ---
+    
+    // 4. Проверяем, не исчерпан ли уже лимит
+    const limitCheck = await sql`
+      SELECT image_generated FROM user_calendar
+      WHERE vk_user_id=${vkUserId} AND date=${today}
+      LIMIT 1
+    `;
+    
+    // Если image_generated=true, лимит исчерпан
+    if (limitCheck.rows.length && limitCheck.rows[0].image_generated === true){
+      return res.status(429).json({ error: "Лимит на генерацию (1 в день) исчерпан" });
     }
 
-    // 5. Гарантия Записи
-    await sql`INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated) VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE) ON CONFLICT (vk_user_id,date) DO NOTHING`;
-    // --- КОНЕЦ: ПОЛНЫЙ БЛОК ПРОВЕРОК ---
+    // 5. Гарантия Записи (чтобы строка существовала)
+    // Мы больше не вставляем 'image_generated=FALSE'
+    await sql`
+      INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until)
+      VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL)
+      ON CONFLICT (vk_user_id,date) DO NOTHING
+    `;
+    // --- КОНЕЦ: БЛОК ПРОВЕРОК ИЗМЕНЕН ---
 
 
-    // --- НАЧАЛО: ЛОГИКА DEZGO FLUX ---
+    // --- НАЧАЛО: ЛОГИКА DEZGO FLUX (работает охуенно) ---
     
     const prompt = buildPrompt({ outfit, gender });
 
@@ -81,7 +91,7 @@ export default async function handler(req,res){
       return res.status(resp.status).json({ error:`Dezgo FLUX API ${resp.status}`, details: errDetails });
     }
     
-    // Конвертируем PNG-ответ в b64
+    // Конвертируем PNG-ответ в b64 (как и раньше)
     const buffer = await resp.arrayBuffer();
     const b64 = Buffer.from(buffer).toString('base64');
 
@@ -91,17 +101,18 @@ export default async function handler(req,res){
     
     // --- КОНЕЦ: ЛОГИКА DEZGO FLUX ---
 
-    // Сохранение в SQL
+    // --- ИЗМЕНЕНИЕ: НЕ СОХРАНЯЕМ b64, А ПРОСТО СТАВИМ ФЛАГ ЛИМИТА ---
     await sql`
       UPDATE user_calendar
-      SET image_base64=${b64}, image_generated=TRUE
+      SET image_generated = TRUE 
       WHERE vk_user_id=${vkUserId} AND date=${today}
     `;
+    
+    // Отдаем b64 на фронтенд (он его покажет 1 раз и все)
     return res.status(200).json({ image_base64: b64 });
 
   }catch(e){
     console.error(e);
-    // e.message будет 'Cannot read properties of undefined (reading 'vk_id_token')'
     return res.status(500).json({ error:e.message });
   }
 }
