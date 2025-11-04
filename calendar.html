@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Модный Календарь</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
+  
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; background:#0a0a0a; color:#fff; }
@@ -40,6 +43,10 @@
     .chip{padding:.5rem .75rem;border-radius:999px;background:#1f2937;cursor:pointer}
     .chip.active{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%)}
     .ok-btn{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); box-shadow:0 4px 20px rgba(124,58,237,.4)}
+    
+    /* Доп. стили, чтобы .innerHTML выглядел хорошо */
+    #outfitText strong { color: #fff; font-weight: 600; }
+    #outfitText p { margin: 0; } /* marked может оборачивать в <p>, убираем отступы */
   </style>
 </head>
 <body class="min-h-screen">
@@ -55,7 +62,6 @@
       <div id="auth-hint" class="mt-3 text-sm text-amber-300 hidden"></div>
     </header>
 
-    <!-- КАЛЕНДАРЬ -->
     <section class="cal-hero mt-6 p-5" id="calRoot" style="--bg:url('/img/leaf.jpg')">
       <div class="flex items-end justify-between mb-2">
         <div class="cal-year" id="yearLabel"></div>
@@ -80,7 +86,6 @@
       <p class="text-xs text-white/70 mt-3">Активен только <b>завтрашний</b> день. Подтверждённые помечаются ✓.</p>
     </section>
 
-    <!-- ВЫБОР НАСТРОЕНИЯ/ПОЛА -->
     <section id="picker" class="mt-6 bg-[#141414] rounded-2xl p-4 shadow-xl hidden">
       <h3 class="font-semibold mb-3">Какое у тебя настроение на завтра?</h3>
       <div id="moods" class="flex flex-wrap gap-2"></div>
@@ -99,7 +104,6 @@
       </div>
     </section>
 
-    <!-- РЕЗУЛЬТАТ -->
     <section id="resultCard" class="mt-6 bg-[#141414] rounded-2xl p-4 shadow-xl hidden">
       <div class="flex gap-3 items-start">
         <div class="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -257,8 +261,12 @@
           body: JSON.stringify({ date: pickedDate, mood: pickedMood, gender: pickedGender })
         });
         const data = await r.json(); if(!r.ok) throw new Error(data.error || 'Ошибка генерации');
+        
+        // --- ИЗМЕНЕНИЕ 2: Используем innerHTML и marked.parse() ---
         generatedOutfit = data.outfit;
-        outfitTextEl.textContent = generatedOutfit;
+        outfitTextEl.innerHTML = marked.parse(generatedOutfit); 
+        // --------------------------------------------------------
+        
         resultCard.classList.remove('hidden');
         resultCard.scrollIntoView({ behavior:'smooth' });
       } catch(e){ alert(e.message); }
@@ -271,6 +279,8 @@
       try {
         const r = await fetch('/api/calendar-set', {
           method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+          // Важно: мы отправляем НАЗАД в базу оригинальный (generatedOutfit) текст с Markdown,
+          // а не HTML. Это правильно.
           body: JSON.stringify({ date: pickedDate, mood: pickedMood, gender: pickedGender, outfit: generatedOutfit })
         });
         const data = await r.json(); if(!r.ok) throw new Error(data.error || 'Ошибка сохранения');
