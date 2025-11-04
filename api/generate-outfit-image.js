@@ -1,38 +1,39 @@
 // /api/generate-outfit-image.js
-// Dezgo text2image (строгая валидация) + кэш 1/день + циркут-брейкер.
+// Dezgo text2image (JSON, X-Dezgo-Key) + кэш 1/день + циркут-брейкер. Ответ: PNG -> base64.
 
 import { sql } from "@vercel/postgres";
 
 export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
-const DEZGO_API_KEY = process.env.DEZGO_API_KEY;
-const DEZGO_URL = "https://api.dezgo.com/text2image"; // возвращает PNG или JSON с ошибкой
+const DEZGO_KEY = process.env.DEZGO_API_KEY;
+const DEZGO_URL = "https://api.dezgo.com/text2image"; // по докам
 
-const RAW_MODEL   = (process.env.DEZGO_MODEL || "").trim(); // отправим только если не пусто
-const RAW_WIDTH   = Number(process.env.DEZGO_WIDTH || 512);
-const RAW_HEIGHT  = Number(process.env.DEZGO_HEIGHT || 512);
-const RAW_STEPS   = Number(process.env.DEZGO_STEPS || 8);
-const RAW_GUIDE   = Number(process.env.DEZGO_GUIDANCE || 3.5);
-const RAW_SAMPLER = (process.env.DEZGO_SAMPLER || "").trim(); // "Euler a" и т.п.
+// ENV → жёсткая валидация под Dezgo
+const MODEL   = (process.env.DEZGO_MODEL || "").trim();            // напр.: flux_1_schnell
+const W_RAW   = Number(process.env.DEZGO_WIDTH  || 512);
+const H_RAW   = Number(process.env.DEZGO_HEIGHT || 512);
+const STEPS   = clampSteps(Number(process.env.DEZGO_STEPS || 8));  // 1..30
+const GUIDE   = clampGuidance(Number(process.env.DEZGO_GUIDANCE || 3.0)); // 0..20
+const SAMPLER = normalizeSampler((process.env.DEZGO_SAMPLER || "").trim()); // опц.
 
 const ALLOWED_SIDE = new Set([256,320,384,448,512,576,640,704,768,832,896,960,1024]);
 
-function clampSteps(x){ return Math.min(30, Math.max(1, Math.floor(x||8))); }    // разумные рамки
-function clampGuidance(x){ return Math.min(20, Math.max(0, Number.isFinite(x)?x:3.5)); }
-
+function clampSteps(x){ return Math.min(30, Math.max(1, Math.floor(Number.isFinite(x) ? x : 8))); }
+function clampGuidance(x){ return Math.min(20, Math.max(0, Number.isFinite(x) ? x : 3.0)); }
 function normalizeSampler(s){
-  if (!s) return "";
-  // Частая ошибка: "euler_a" → должен быть "Euler a"
+  // Если не уверен — лучше не отправлять вовсе (дефолт у Dezgo нормальный).
+  // У них конкретные названия, без подчёркиваний, чувствительны к регистру, напр. "DPM++ 2M Karras", "Euler a".
   const map = {
     "euler a": "Euler a",
     "euler_a": "Euler a",
     "Euler a": "Euler a",
-    "dpmpp_2m": "DPM++ 2M",
     "dpm++ 2m": "DPM++ 2M",
-    "DPM++ 2M": "DPM++ 2M",
+    "dpmpp_2m": "DPM++ 2M",
+    "dpm++ 2m karras": "DPM++ 2M Karras",
+    "dpmpp_2m_karras": "DPM++ 2M Karras",
   };
   const key = s.toLowerCase();
-  return map[key] || s; // оставим как есть, но лучше один из известных
+  return map[key] || s;
 }
 
 function parseCookies(req){
@@ -45,16 +46,16 @@ function ymdZurich(d = new Date()){
   return `${p.year}-${p.month}-${p.day}`;
 }
 function buildPrompt({ outfit, gender }){
-  const prefix = `Generate me a pixel person with description like in the text: `;
-  const style  = ` 8-bit pixel art, limited clean palette, crisp sprite, full figure, simple studio background, no text.`;
-  return `${prefix}"${outfit}" (gender: ${gender}).${style}`;
+  // Короткий безопасный промпт для пиксель-арта
+  const style = `8-bit pixel art, limited clean palette, crisp sprite, full figure, simple studio background, no text.`;
+  return `Generate a pixel person with description like in the text: "${outfit}" (gender: ${gender}). ${style}`;
 }
 const NEGATIVE = "nsfw, nude, watermark, logo, text, extra fingers, deformed hands, deformed face, blurry";
 
 export default async function handler(req,res){
   try{
     if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
-    if (!DEZGO_API_KEY) return res.status(500).json({ error:"DEZGO_API_KEY не задан" });
+    if (!DEZGO_KEY) return res.status(500).json({ error:"DEZGO_API_KEY не задан" });
 
     const cookies  = parseCookies(req);
     const vkToken  = cookies["vk_id_token"];
@@ -67,7 +68,7 @@ export default async function handler(req,res){
     const today = ymdZurich();
     if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
 
-    // --- читаем запись на сегодня
+    // --- читаем/готовим запись на сегодня
     const existing = await sql`
       SELECT image_base64, image_generated, image_error, image_attempted_today
       FROM user_calendar
@@ -75,11 +76,11 @@ export default async function handler(req,res){
       LIMIT 1
     `;
     if (existing.rows.length){
-      const row = existing.rows[0];
-      if (row.image_generated && row.image_base64){
-        return res.status(200).json({ image_base64: row.image_base64, cached:true });
+      const r = existing.rows[0];
+      if (r.image_generated && r.image_base64){
+        return res.status(200).json({ image_base64: r.image_base64, cached:true });
       }
-      if (!row.image_generated && row.image_attempted_today && row.image_error){
+      if (!r.image_generated && r.image_attempted_today && r.image_error){
         return res.status(429).json({
           error:"image_generation_disabled_for_today",
           details:"Сегодня генерация у провайдера уже падала. Попробуйте завтра."
@@ -87,7 +88,7 @@ export default async function handler(req,res){
       }
     }
 
-    // --- гарантируем запись и отметим попытку
+    // --- первичная запись + флаг «попытки сегодня»
     await sql`
       INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,
                                  image_generated,image_attempted_today,image_error)
@@ -99,50 +100,54 @@ export default async function handler(req,res){
           image_error = NULL
     `;
 
-    // --- строгая валидация параметров перед билдом формы
-    const W = ALLOWED_SIDE.has(RAW_WIDTH)  ? RAW_WIDTH  : 512;
-    const H = ALLOWED_SIDE.has(RAW_HEIGHT) ? RAW_HEIGHT : 512;
-    const STEPS = clampSteps(RAW_STEPS);
-    const GUIDE = clampGuidance(RAW_GUIDE);
-    const SAMPLER = normalizeSampler(RAW_SAMPLER); // "" либо корректное имя
+    // --- строгая валидация размеров под Dezgo (кратно 64)
+    const W = ALLOWED_SIDE.has(W_RAW) ? W_RAW : 512;
+    const H = ALLOWED_SIDE.has(H_RAW) ? H_RAW : 512;
 
+    // --- сбор JSON-запроса (рекомендованный формат по докам)
     const prompt = buildPrompt({ outfit, gender });
-
-    // формируем multipart form-data
-    const form = new FormData();
-    form.append("prompt", prompt);
-    form.append("negative_prompt", NEGATIVE);
-    form.append("width", String(W));
-    form.append("height", String(H));
-    form.append("steps", String(STEPS));
-    form.append("guidance", String(GUIDE));
-    if (SAMPLER) form.append("sampler", SAMPLER); // отправим только если задан
-    if (RAW_MODEL) form.append("model", RAW_MODEL); // тоже только если задан
+    const body = {
+      prompt,
+      negative_prompt: NEGATIVE,
+      width: W,
+      height: H,
+      steps: STEPS,
+      guidance: GUIDE,
+      // model/sampler — ТОЛЬКО если заданы; иначе используем дефолты Dezgo (минимум шансов на 400)
+      ...(MODEL   ? { model: MODEL }   : {}),
+      ...(SAMPLER ? { sampler: SAMPLER } : {})
+      // seed, upscale, format и др. — по желанию; ответ всё равно будет PNG-байтами
+    };
 
     const resp = await fetch(DEZGO_URL, {
       method: "POST",
-      headers: { "X-Dezgo-Key": DEZGO_API_KEY },
-      body: form
+      headers: {
+        "Content-Type": "application/json",       // рекомендованный формат
+        "X-Dezgo-Key": DEZGO_KEY                  // аутентификация по докам
+      },
+      body: JSON.stringify(body)
     });
 
     const ct = resp.headers.get("content-type") || "";
 
     if (!resp.ok) {
+      // Читаем текст ошибки (у Dezgo и 400/4xx приходят JSON/текст), сохраняем в БД
       let errText = "";
       try { errText = await resp.text(); } catch { errText = `HTTP ${resp.status} (${ct})`; }
-      // логируем причину и блокируем дальнейшие попытки сегодня
       await sql`UPDATE user_calendar SET image_error=${String(errText).slice(0,1000)} WHERE vk_user_id=${vkUserId} AND date=${today}`;
       return res.status(resp.status).json({ error:`Dezgo ${resp.status}`, details: String(errText).slice(0,800) });
     }
 
+    // У Dezgo тело — PNG (raw). Конвертируем в base64 и кэшируем.
     let b64;
     if (ct.startsWith("image/")) {
       const buf = Buffer.from(await resp.arrayBuffer());
       b64 = buf.toString("base64");
     } else {
-      const text = await resp.text();
+      // На всякий случай: если вернулся JSON с ссылкой
+      const t = await resp.text();
       try {
-        const j = JSON.parse(text);
+        const j = JSON.parse(t);
         const url = j?.image || j?.url || j?.data?.image;
         if (!url) throw new Error("no image field");
         const r2 = await fetch(url);
@@ -151,11 +156,10 @@ export default async function handler(req,res){
         b64 = buf.toString("base64");
       } catch (e) {
         await sql`UPDATE user_calendar SET image_error=${String(e.message).slice(0,1000)} WHERE vk_user_id=${vkUserId} AND date=${today}`;
-        return res.status(500).json({ error:"Dezgo: неожиданный ответ", details: e.message });
+        return res.status(500).json({ error:"Dezgo: неожиданный ответ", details: String(e.message) });
       }
     }
 
-    // --- кэш успеха
     await sql`
       UPDATE user_calendar
       SET image_base64=${b64}, image_generated=TRUE, image_error=NULL
