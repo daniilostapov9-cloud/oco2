@@ -9,6 +9,8 @@
   <style>
     body { font-family: 'Inter', sans-serif; background:#0a0a0a; color:#fff; }
     .gradient-bg{background:linear-gradient(180deg,#184b32 0%,#0f1b15 55%,#0a0a0a 100%);opacity:.9}
+
+    /* Карточка календаря (зелёный стиль) */
     .cal-hero{position:relative; isolation:isolate; border-radius:20px; overflow:hidden;
       background:linear-gradient(180deg,rgba(31,95,62,.35),rgba(31,95,62,.15),rgba(0,0,0,.35));
       box-shadow: 0 10px 30px rgba(0,0,0,.4); }
@@ -17,9 +19,11 @@
       z-index:-1; opacity:.9; }
     .cal-month{ font-family: 'Times New Roman', Georgia, serif; letter-spacing:.02em; text-transform: uppercase; color:#d7efdf; }
     .cal-year{ font-weight:900; font-size:2.5rem; line-height:1; color:#ffffff; text-shadow:0 5px 25px rgba(0,0,0,.45); }
+
     .wd{ padding:.4rem .6rem; border-radius:10px; border:1px solid rgba(255,255,255,.08);
          background: rgba(255,255,255,.06); color:#e8f3ed; }
     .grid7{ display:grid; grid-template-columns:repeat(7,1fr); gap:.5rem; }
+
     .day{ aspect-ratio:1/1; border-radius:12px; display:flex; align-items:center; justify-content:center;
           position:relative; font-weight:700;
           background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
@@ -30,13 +34,19 @@
     .day:hover{ transform: translateY(-1px); box-shadow: 0 8px 24px rgba(22, 163, 74, .15); }
     .day.disabled{ opacity:.35; pointer-events:none; }
     .day.sunday .num{ color:#ff7a7a; }
-    .day.tomorrow{ background:linear-gradient(180deg, rgba(76,175,115,.25), rgba(35,94,62,.2));
-                   border-color: rgba(76,175,115,.45);
-                   box-shadow: 0 8px 26px rgba(35, 94, 62, .35), inset 0 1px 0 rgba(255,255,255,.1); }
-    .day.tomorrow::after{ content:""; position:absolute; inset:-2px; border-radius:14px;
-                          box-shadow: 0 0 0 2px rgba(76,175,115,.45) inset; pointer-events:none; }
+
+    /* СЕГОДНЯ — единственный активный */
+    .day.today{
+      background:linear-gradient(180deg, rgba(76,175,115,.25), rgba(35,94,62,.2));
+      border-color: rgba(76,175,115,.45);
+      box-shadow: 0 8px 26px rgba(35, 94, 62, .35), inset 0 1px 0 rgba(255,255,255,.1);
+    }
+    .day.today::after{ content:""; position:absolute; inset:-2px; border-radius:14px;
+      box-shadow: 0 0 0 2px rgba(76,175,115,.45) inset; pointer-events:none; }
+
     .day.done{ opacity:.45; }
     .day.done::before{ content:"✓"; position:absolute; right:6px; top:6px; font-size:.8rem; color:#b6e7c9; text-shadow:0 1px 0 rgba(0,0,0,.4); }
+
     .chip{padding:.5rem .75rem;border-radius:999px;background:#1f2937;cursor:pointer}
     .chip.active{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%)}
     .ok-btn{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); box-shadow:0 4px 20px rgba(124,58,237,.4)}
@@ -77,12 +87,14 @@
       </div>
 
       <div id="calGrid" class="grid7"></div>
-      <p class="text-xs text-white/70 mt-3">Активен только <b>завтрашний</b> день. Подтверждённые помечаются ✓.</p>
+      <p class="text-xs text-white/70 mt-3">
+        Активен только <b>сегодняшний</b> день. После подтверждения он помечается ✓.
+      </p>
     </section>
 
     <!-- ВЫБОР НАСТРОЕНИЯ/ПОЛА -->
     <section id="picker" class="mt-6 bg-[#141414] rounded-2xl p-4 shadow-xl hidden">
-      <h3 class="font-semibold mb-3">Какое у тебя настроение на завтра?</h3>
+      <h3 class="font-semibold mb-3">Какое у тебя настроение <b>сегодня</b>?</h3>
       <div id="moods" class="flex flex-wrap gap-2"></div>
 
       <h3 class="font-semibold mt-5 mb-3">Выбери пол</h3>
@@ -95,7 +107,7 @@
         Подобрать образ
       </button>
       <div id="genNote" class="text-xs text-white/50 mt-2">
-        После подтверждения этот день будет помечен ✓, а новый образ можно будет выбрать завтра.
+        После подтверждения этот день будет помечен ✓. Новый образ будет доступен завтра.
       </div>
     </section>
 
@@ -105,7 +117,7 @@
         <div class="w-10 h-10 rounded-xl flex items-center justify-center"
              style="background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%);">👗</div>
         <div class="flex-1">
-          <h3 class="font-semibold mb-2">Образ на завтра</h3>
+          <h3 class="font-semibold mb-2">Образ на сегодня</h3>
           <div id="outfitText" class="text-white/80 text-sm leading-relaxed whitespace-pre-line"></div>
           <button id="confirmBtn" class="ok-btn mt-4 w-full py-3 rounded-xl font-semibold">Окей</button>
         </div>
@@ -114,10 +126,8 @@
   </div>
 
   <script>
-    // ===== auth cookies (optional hint)
-    function getCookie(name){
-      return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1];
-    }
+    // ===== auth hint
+    function getCookie(name){ return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1]; }
     const vkToken = getCookie('vk_id_token');
     const vkUserId = getCookie('vk_user_id');
     if (!vkToken || !vkUserId) {
@@ -126,21 +136,21 @@
       hint.textContent = 'Войдите через приложение ОСО, чтобы пользоваться календарём.';
     }
 
-    // ===== dates
+    // ===== dates (Europe/Zurich)
     const tz = 'Europe/Zurich';
     const fmtMonth = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, month:'long'}).format(d).toUpperCase();
-    const fmtYear = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, year:'numeric'}).format(d);
+    const fmtYear  = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, year:'numeric'}).format(d);
     const fmtToday = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, year:'numeric', month:'2-digit', day:'2-digit'}).format(d);
     const ymd = (d) => new Intl.DateTimeFormat('en-CA',{ timeZone:tz, year:'numeric', month:'2-digit', day:'2-digit'}).format(d);
 
     const now = new Date();
-    const tomorrow = new Date(); tomorrow.setDate(now.getDate()+1);
-    const tomorrowYMD = ymd(tomorrow);
+    const todayYMD = ymd(now);
 
-    // ===== mood chips
+    // ===== moods/genders
     const MOODS = ['радостное','грустное','тревожное','раздражительное','виноватое','расслабленное','возбужденное','скучное','творческое'];
     const moodsWrap = document.getElementById('moods');
     let pickedMood = null, pickedGender = null, pickedDate = null, generatedOutfit = null;
+
     MOODS.forEach(m => {
       const b = document.createElement('button');
       b.className = 'chip';
@@ -148,50 +158,51 @@
       b.onclick = () => { [...moodsWrap.children].forEach(c=>c.classList.remove('active')); b.classList.add('active'); pickedMood=m; maybeEnableGen(); };
       moodsWrap.appendChild(b);
     });
+
     document.querySelectorAll('#genders .chip').forEach(btn => {
       btn.onclick = () => { document.querySelectorAll('#genders .chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active'); pickedGender=btn.dataset.gender; maybeEnableGen(); }
     });
+
     function maybeEnableGen(){
       const genBtn = document.getElementById('genBtn');
-      if (pickedMood && pickedGender && pickedDate === tomorrowYMD) { genBtn.disabled=false; genBtn.classList.remove('disabled','opacity-50'); }
+      if (pickedMood && pickedGender && pickedDate === todayYMD) { genBtn.disabled=false; genBtn.classList.remove('disabled','opacity-50'); }
       else { genBtn.disabled=true; genBtn.classList.add('disabled','opacity-50'); }
     }
 
-    // ===== DB completed
+    // ===== completed from DB
     let completed = {};
     async function fetchCompleted(year, month){
       try{
         const r = await fetch(`/api/calendar-get?year=${year}&month=${month}`, { credentials:'include' });
-        if(r.ok){
-          (await r.json()).entries.forEach(e=> completed[e.date]=true);
-        }
+        if(r.ok){ (await r.json()).entries.forEach(e=> completed[e.date]=true); }
       }catch(e){}
     }
 
-    // ===== build grid with prev/next month numbers (disabled), dynamic to 6 rows (42 cells)
+    // ===== render calendar (динамическая сетка 6х7, с числами из соседних месяцев)
     async function renderCalendar(){
-      const calGrid = document.getElementById('calGrid');
-      const monthLabel = document.getElementById('monthLabel');
+      const calGrid   = document.getElementById('calGrid');
+      const monthLabel= document.getElementById('monthLabel');
       const yearLabel = document.getElementById('yearLabel');
-      const todayLabel = document.getElementById('todayLabel');
+      const todayLabel= document.getElementById('todayLabel');
 
       const local = new Date(new Intl.DateTimeFormat('en-CA',{timeZone:tz}).format(now)+'T00:00:00Z');
-      const year = local.getUTCFullYear();
+      const year  = local.getUTCFullYear();
       const month = local.getUTCMonth(); // 0..11
+
       await fetchCompleted(year, month+1);
 
       monthLabel.textContent = fmtMonth(now);
-      yearLabel.textContent = fmtYear(now);
+      yearLabel.textContent  = fmtYear(now);
       todayLabel.textContent = 'Сегодня: ' + fmtToday(now);
 
       calGrid.innerHTML = '';
 
       const first = new Date(Date.UTC(year, month, 1));
-      let weekday = first.getUTCDay(); if (weekday===0) weekday=7; // Mon=1..Sun=7
+      let weekday = first.getUTCDay(); if (weekday===0) weekday=7; // Пн=1..Вс=7
       const daysInMonth = new Date(year, month+1, 0).getUTCDate();
-      const daysInPrev = new Date(year, month, 0).getUTCDate();
+      const daysInPrev  = new Date(year, month,   0).getUTCDate();
 
-      // leading from prev month
+      // ведущие из прошлого месяца
       const lead = weekday-1;
       for (let i=lead-1; i>=0; i--){
         const num = daysInPrev - i;
@@ -202,9 +213,9 @@
         calGrid.appendChild(cell);
       }
 
-      // current month days
+      // текущий месяц
       for (let d=1; d<=daysInMonth; d++){
-        const date = new Date(Date.UTC(year, month, d));
+        const date    = new Date(Date.UTC(year, month, d));
         const dateYMD = ymd(date);
         const cell = document.createElement('button');
         cell.className = 'day';
@@ -213,15 +224,17 @@
         let w = date.getUTCDay(); if (w===0) w=7;
         if (w===7) cell.classList.add('sunday');
 
-        const isTomorrow = dateYMD === tomorrowYMD;
+        const isToday = dateYMD === todayYMD;
+
         if (completed[dateYMD]) {
           cell.classList.add('done','disabled'); cell.disabled = true;
-        } else if (isTomorrow) {
-          cell.classList.add('tomorrow');
+        } else if (isToday) {
+          cell.classList.add('today');
         } else {
           cell.classList.add('disabled'); cell.disabled = true;
         }
-        if (isTomorrow && !completed[dateYMD]) {
+
+        if (isToday && !completed[dateYMD]) {
           cell.addEventListener('click', () => {
             pickedDate = dateYMD;
             document.getElementById('picker').classList.remove('hidden');
@@ -232,9 +245,9 @@
         calGrid.appendChild(cell);
       }
 
-      // trailing for next month to fill to 42 cells
-      const cellsNow = calGrid.children.length;
-      const tail = (Math.ceil(cellsNow/7)*7 === cellsNow) ? 0 : (Math.ceil(cellsNow/7)*7 - cellsNow);
+      // добиваем до 42 клеток числами следующего месяца
+      const cellsNow   = calGrid.children.length;
+      const tail       = (Math.ceil(cellsNow/7)*7 === cellsNow) ? 0 : (Math.ceil(cellsNow/7)*7 - cellsNow);
       const nextNeeded = (cellsNow + tail < 42) ? 42 - cellsNow : tail;
       for (let i=1; i<=nextNeeded; i++){
         const cell = document.createElement('button');
@@ -244,11 +257,12 @@
       }
     }
 
-    // ===== generate outfit
+    // ===== generate outfit (на СЕГОДНЯ)
     const genBtn = document.getElementById('genBtn');
     const resultCard = document.getElementById('resultCard');
     const outfitTextEl = document.getElementById('outfitText');
     const confirmBtn = document.getElementById('confirmBtn');
+
     genBtn.addEventListener('click', async () => {
       genBtn.disabled = true; genBtn.textContent = 'Подбираю...';
       try {
@@ -265,7 +279,7 @@
       finally { genBtn.textContent = 'Подобрать образ'; maybeEnableGen(); }
     });
 
-    // ===== confirm & save
+    // ===== confirm & save (на СЕГОДНЯ)
     confirmBtn.addEventListener('click', async () => {
       confirmBtn.disabled = true; confirmBtn.textContent = 'Сохраняю...';
       try {
