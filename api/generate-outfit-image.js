@@ -137,17 +137,21 @@ export default async function handler(req,res){
     const today = ymdZurich();
     if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
 
-    // кэш
+    // *** ИЗМЕНЕНИЕ 1: ПРОВЕРКА ***
+    // кэш (проверка лимита на сегодня)
     const cached = await sql`
-      SELECT image_base64 FROM user_calendar
+      SELECT 1 FROM user_calendar
        WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE
        LIMIT 1
     `;
-    if (cached.rows.length && cached.rows[0].image_base64){
-      return res.status(200).json({ image_base64: cached.rows[0].image_base64, cached:true });
+    // Если нашли запись, где флаг УЖЕ TRUE, — сразу отбой. Картинку не храним.
+    if (cached.rows.length > 0){
+      return res.status(409).json({ error: "Лимит на сегодня исчерпан, генерация уже была." });
     }
 
-    // гарантируем строку дня
+
+    // гарантируем строку дня (если кэша не было)
+    // (ВАЖНО: здесь мы НЕ ставим image_generated=TRUE, это произойдет только ПОСЛЕ успешной генерации)
     await sql`
       INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated)
       VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE)
@@ -186,12 +190,15 @@ export default async function handler(req,res){
     const b64 = Buffer.from(buffer).toString("base64");
     if (!b64) return res.status(500).json({ error:"Dezgo FLUX: не удалось конвертировать PNG в b64" });
 
+    // *** ИЗМЕНЕНИЕ 2: СОХРАНЕНИЕ ***
+    // Сохраняем ТОЛЬКО флаг, что генерация была. Сама картинка b64 не сохраняется в БД.
     await sql`
       UPDATE user_calendar
-      SET image_base64=${b64}, image_generated=TRUE
+      SET image_generated=TRUE
       WHERE vk_user_id=${vkUserId} AND date=${today}
     `;
 
+    // Отправляем картинку пользователю
     return res.status(200).json({
       image_base64: b64,
       meta: {
