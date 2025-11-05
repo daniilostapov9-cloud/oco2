@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale-1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Модный Календарь</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
@@ -36,8 +36,29 @@
       box-shadow: 0 8px 26px rgba(35, 94, 62, .35), inset 0 1px 0 rgba(255,255,255,.1); }
     .day.today::after{ content:""; position:absolute; inset:-2px; border-radius:14px;
       box-shadow: 0 0 0 2px rgba(76,175,115,.45) inset; pointer-events:none; }
-    .day.done{ opacity:.45; }
-    .day.done::before{ content:"✓"; position:absolute; right:6px; top:6px; font-size:.8rem; color:#b6e7c9; text-shadow:0 1px 0 rgba(0,0,0,.4); }
+    
+    
+    .day.done { opacity: .6; } 
+    
+    /* (Цифру .num больше НЕ прячем, она остается видна) */
+    /* .day.done .num { display: none; } */ 
+    
+    .day.done::before{ 
+      content:"✓"; 
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      font-size: 2.5rem; /* <-- СДЕЛАЛ БОЛЬШОЙ */
+      font-weight: 800;
+      color: #b6e7c9; 
+      text-shadow:0 2px 3px rgba(0,0,0,.5); 
+      opacity: 1; /* Галка всегда яркая */
+      z-index: 10; /* Галка всегда сверху */
+    }
+
     .chip{padding:.5rem .75rem;border-radius:999px;background:#1f2937;cursor:pointer}
     .chip.active{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%)}
     .ok-btn{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); box-shadow:0 4px 20px rgba(124,58,237,.4)}
@@ -106,22 +127,20 @@
             <button id="previewBtn" class="w-full py-2 rounded-xl font-semibold border border-white/10 hover:bg-white/5"> Показать «Пример образа» (пиксель-арт) </button>
             <div id="previewImgBox" class="mt-3 hidden"> <img id="previewImg" class="w-full rounded-xl" alt="Пример образа"> </div>
           </div>
-          <button id="confirmBtn" class="ok-btn mt-4 w-full py-3 rounded-xl font-semibold">Окей</button>
+          
+          <button id="confirmBtn" class="ok-btn mt-4 w-full py-3 rounded-xl font-semibold">Check in</button>
         </div>
       </div>
     </section>
   </div>
 
   <script>
-    // ===== auth cookies (без изменений)
     function getCookie(name){ return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1]; }
     const vkToken = getCookie('vk_id_token'); const vkUserId = getCookie('vk_user_id');
     if (!vkToken || !vkUserId) { const hint = document.getElementById('auth-hint'); hint.classList.remove('hidden'); hint.textContent='Войдите через приложение ОСО.'; }
 
-    // ===== dates (*** ИЗМЕНЕНИЕ: Убрали всю логику отсюда ***)
-    let todayYMD = null; // Эту "правдивую" дату мы получим с сервера
+    let todayYMD = null; 
 
-    // ===== UI state (без изменений)
     const MOODS=['радостное','грустное','тревожное','раздражительное','виноватое','расслабленное','возбужденное','скучное','творческое'];
     const moodsWrap=document.getElementById('moods'); let pickedMood=null, pickedGender=null, pickedDate=null, generatedOutfit=null;
     MOODS.forEach(m=>{ const b=document.createElement('button'); b.className='chip'; b.textContent=m.charAt(0).toUpperCase()+m.slice(1);
@@ -130,7 +149,6 @@
 
     function maybeEnableGen(){ 
       const g=document.getElementById('genBtn'); 
-      // Проверяем по 'todayYMD' с сервера
       if(pickedMood&&pickedGender&&pickedDate===todayYMD){ 
         g.disabled=false; g.classList.remove('disabled','opacity-50'); 
       } else { 
@@ -138,55 +156,46 @@
       } 
     }
 
-    // ===== DB completed (без изменений)
     let completed={};
     async function fetchCompleted(year,month){ try{ const r=await fetch(`/api/calendar-get?year=${year}&month=${month}`,{credentials:'include'}); if(r.ok){(await r.json()).entries.forEach(e=>completed[e.date]=e.confirmed);} }catch(e){} }
 
-    // ===== build grid (*** ИЗМЕНЕНИЕ: Принимает данные с сервера + ФИКС БАГА СЕТКИ ***)
     function renderCalendar(serverTime){
       const calGrid=document.getElementById('calGrid'); 
       const monthLabelEl=document.getElementById('monthLabel');
       const yearLabelEl=document.getElementById('yearLabel'); 
       const todayLabelEl=document.getElementById('todayLabel');
 
-      // 1. Берем данные с сервера
       const { year, month, monthLabel, yearLabel, todayLabel } = serverTime;
 
       monthLabelEl.textContent = monthLabel;
       yearLabelEl.textContent = yearLabel;
       todayLabelEl.textContent = todayLabel;
-
       calGrid.innerHTML='';
 
-      // 2. *** ФИКС БАГА СЕТКИ ***
-      // (year и month - от сервера, например 2025 и 10 (Ноябрь))
       const first=new Date(Date.UTC(year,month,1)); 
-      let weekday=first.getUTCDay(); if(weekday===0)weekday=7; // ПН=1, ВС=7
+      let weekday=first.getUTCDay(); if(weekday===0)weekday=7; 
       
-      const daysInMonth=new Date(Date.UTC(year,month+1,0)).getUTCDate(); // (Ноябрь: 30)
-      const daysInPrev=new Date(Date.UTC(year,month,0)).getUTCDate();   // (Октябрь: 31)
+      const daysInMonth=new Date(Date.UTC(year,month+1,0)).getUTCDate(); 
+      const daysInPrev=new Date(Date.UTC(year,month,0)).getUTCDate();   
 
-      // 3. *** ФИКС БАГА СЕТКИ *** (Дни "ДО")
-      const lead = weekday - 1; // (Если 1 Ноя = СБ (6), lead = 5)
+      const lead = weekday - 1; 
       for(let i = 0; i < lead; i++){ 
-        const num = daysInPrev - (lead - 1 - i); // (31 - (4-0) = 27 ... 31 - (4-4) = 31)
+        const num = daysInPrev - (lead - 1 - i); 
         const ph=document.createElement('button'); 
         ph.className='day other disabled'; ph.disabled=true; 
         ph.innerHTML=`<span class="num">${num}</span>`; 
         calGrid.appendChild(ph); 
       }
 
-      // 4. Дни текущего месяца (без изменений)
       for(let d=1; d<=daysInMonth; d++){ 
         const date=new Date(Date.UTC(year,month,d));
-        // Эта утилита нужна только здесь, так что она локальная
         const ymd_local = (d_obj) => new Intl.DateTimeFormat('en-CA',{ timeZone:'UTC', year:'numeric', month:'2-digit', day:'2-digit'}).format(d_obj);
         const dateYMD = ymd_local(date);
         
         const cell=document.createElement('button'); cell.className='day'; cell.innerHTML=`<span class="num">${d}</span>`;
         let w=date.getUTCDay(); if(w===0)w=7; if(w===7)cell.classList.add('sunday');
         
-        const isToday=(dateYMD===todayYMD); // todayYMD - "правда" с сервера
+        const isToday=(dateYMD===todayYMD); 
         
         if(completed[dateYMD]){ cell.classList.add('done','disabled'); cell.disabled=true; }
         else if(isToday){ cell.classList.add('today'); }
@@ -203,9 +212,8 @@
         calGrid.appendChild(cell);
       }
       
-      // 5. *** ФИКС БАГА СЕТКИ *** (Дни "ПОСЛЕ")
       const cellsNow=calGrid.children.length;
-      const nextNeeded = 42 - cellsNow; // (Просто добиваем до 42)
+      const nextNeeded = 42 - cellsNow; 
       for(let i=1;i<=nextNeeded;i++){ 
         const ph=document.createElement('button'); 
         ph.className='day other disabled'; ph.disabled=true; 
@@ -214,14 +222,12 @@
       }
     }
 
-    // ===== DOM-элементы (без изменений)
     const genBtn=document.getElementById('genBtn'); const resultCard=document.getElementById('resultCard'); const outfitTextEl=document.getElementById('outfitText');
     const confirmBtn=document.getElementById('confirmBtn'); const lockNote=document.getElementById('lockNote');
     const previewWrap=document.getElementById('previewWrap'); const previewBtn=document.getElementById('previewBtn');
     const previewImgBox=document.getElementById('previewImgBox'); const previewImg=document.getElementById('previewImg');
 
 
-    // ===== Реклама / Генерация (Логика без изменений) =====
     
     async function runGenerateOutfit() {
       showInterstitialAd(async () => {
@@ -282,7 +288,6 @@
       }
     });
     
-    // ===== Кнопка "Окей" (без изменений) =====
     confirmBtn.addEventListener('click', async ()=>{
       confirmBtn.disabled=true; confirmBtn.textContent='Сохраняю...';
       try{
@@ -291,13 +296,14 @@
         const data=await r.json(); if(!r.ok) throw new Error(data.error||'Ошибка сохранения');
         alert('Готово! День отмечен.'); location.reload();
       }catch(e){ alert(e.message); }
-      finally{ confirmBtn.disabled=false; confirmBtn.textContent='Окей'; }
+      finally{ 
+        confirmBtn.disabled=false; 
+        confirmBtn.textContent='Check in'; 
+      }
     });
     
     
-    // ===== JS-функции для WEB-рекламы (без изменений) =====
     
-    // Вставь сюда свой ID от Яндекса
     const YANDEX_WEB_BLOCK_ID_CALENDAR = 'R-A-XXXXXXX-2'; // <-- ЗАМЕНИ НА СВОЙ ID БЛОКА
 
     function isWebView(){
@@ -349,32 +355,24 @@
       });
     }
 
-    // --- ИЗМЕНЕНИЕ: Функция ИНИЦИАЛИЗАЦИИ, которая запускает всё ---
     async function initializeCalendar() {
       try {
-        // 1. Получаем "правдивое" время с сервера
         const response = await fetch('/api/get-time');
         if (!response.ok) throw new Error('Не удалось получить время с сервера');
         const serverTime = await response.json();
         
-        // 2. Устанавливаем ГЛОБАЛЬНУЮ 'todayYMD'. Теперь это "правда".
         todayYMD = serverTime.todayYMD; 
 
-        // 3. Загружаем "галочки" для этого месяца
-        // (API calendar-get.js ждет месяц 1-12, а сервер отдает 0-11)
         await fetchCompleted(serverTime.year, serverTime.month + 1); 
 
-        // 4. Только теперь, когда есть все данные, рисуем календарь
         renderCalendar(serverTime);
         
       } catch (e) {
         console.error(e);
-        // Показываем ошибку в календаре
         document.getElementById('calGrid').innerHTML = `<p class="text-red-400 p-4 col-span-7">Ошибка загрузки: ${e.message}</p>`;
       }
     }
 
-    // --- ЗАПУСК ---
     initializeCalendar();
     
   </script>
