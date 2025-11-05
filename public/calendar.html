@@ -37,7 +37,6 @@
     .day.today::after{ content:""; position:absolute; inset:-2px; border-radius:14px;
       box-shadow: 0 0 0 2px rgba(76,175,115,.45) inset; pointer-events:none; }
     
-    /* --- 🔥 ИЗМЕНЕНИЕ: ГАЛКА СТАЛА КРАСНОЙ 🔥 --- */
     
     .day.done { opacity: .6; } 
     
@@ -56,7 +55,6 @@
       opacity: 1; 
       z-index: 10; 
     }
-    /* --- 🔥 КОНЕЦ ИЗМЕНЕНИЯ 🔥 --- */
 
     .chip{padding:.5rem .75rem;border-radius:999px;background:#1f2937;cursor:pointer}
     .chip.active{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%)}
@@ -312,7 +310,7 @@
     
     // ===== JS-функции для WEB-рекламы
     
-    const YANDEX_WEB_BLOCK_ID_CALENDAR = 'R-A-XXXXXXX-2'; // <-- ЗАМЕНИ НА СВОЙ ID БЛОКА
+    const YANDEX_WEB_BLOCK_ID_CALENDAR = 'R-A-XXXXXXX-2'; // 
 
     function isWebView(){
       const ua = navigator.userAgent || '';
