@@ -1,4 +1,3 @@
-// /api/generate-outfit.js
 import { sql } from "@vercel/postgres";
 
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -69,8 +68,6 @@ export default async function handler(req, res) {
     const today = ymdZurich();
     if (date !== today) return res.status(400).json({ error: `Можно только на сегодня: ${today}` });
 
-    // === ЛИМИТ 1 В ДЕНЬ ===
-    // Сначала проверяем, есть ли уже запись на сегодня. Если да — НИЧЕГО не генерим.
     const existing = await sql`
       SELECT outfit, confirmed
       FROM user_calendar
@@ -90,11 +87,9 @@ export default async function handler(req, res) {
       });
     }
 
-    // Записи нет — делаем ОДНУ генерацию
     const prompt = `Сегодня. Пол: ${gender}. Настроение: ${mood}. Собери удобный городской образ на текущий сезон.`;
     const outfit = await callGemini(prompt);
 
-    // Пытаемся вставить запись. Если кто-то успел вставить параллельно — не перезаписываем.
     const inserted = await sql`
       INSERT INTO user_calendar (vk_user_id, date, mood, gender, outfit, confirmed, locked_until)
       VALUES (${vkUserId}, ${today}, ${mood}, ${gender}, ${outfit}, FALSE, NULL)
@@ -103,7 +98,6 @@ export default async function handler(req, res) {
     `;
 
     if (inserted.rows.length === 0) {
-      // Редкий гонка-случай: кто-то вставил раньше нас. Читаем и отдаём существующий (без повторной генерации).
       const again = await sql`
         SELECT outfit, confirmed
         FROM user_calendar
@@ -117,7 +111,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ outfit: row.outfit, limit_reached: true });
     }
 
-    // Нормальный кейс: это первая (и единственная) генерация за сегодня
     return res.status(200).json({ outfit, limit_reached: true });
   } catch (e) {
     console.error(e);
