@@ -44,9 +44,9 @@
     .chip.active{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%)}
     .ok-btn{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%); box-shadow:0 4px 20px rgba(124,58,237,.4)}
     
-    /* Доп. стили, чтобы .innerHTML выглядел хорошо */
+
     #outfitText strong { color: #fff; font-weight: 600; }
-    #outfitText p { margin: 0; } /* marked может оборачивать в <p>, убираем отступы */
+    #outfitText p { margin: 0; } =
   </style>
 </head>
 <body class="min-h-screen">
@@ -262,7 +262,6 @@
         });
         const data = await r.json(); if(!r.ok) throw new Error(data.error || 'Ошибка генерации');
         
-        // --- ИЗМЕНЕНИЕ 2: Используем innerHTML и marked.parse() ---
         generatedOutfit = data.outfit;
         outfitTextEl.innerHTML = marked.parse(generatedOutfit); 
         // --------------------------------------------------------
@@ -273,14 +272,11 @@
       finally { genBtn.textContent = 'Подобрать образ'; maybeEnableGen(); }
     });
 
-    // ===== confirm & save
     confirmBtn.addEventListener('click', async () => {
       confirmBtn.disabled = true; confirmBtn.textContent = 'Сохраняю...';
       try {
         const r = await fetch('/api/calendar-set', {
           method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-          // Важно: мы отправляем НАЗАД в базу оригинальный (generatedOutfit) текст с Markdown,
-          // а не HTML. Это правильно.
           body: JSON.stringify({ date: pickedDate, mood: pickedMood, gender: pickedGender, outfit: generatedOutfit })
         });
         const data = await r.json(); if(!r.ok) throw new Error(data.error || 'Ошибка сохранения');
