@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale-1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Модный Календарь</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
@@ -45,11 +45,9 @@
     #outfitText strong { color: #fff; font-weight: 600; }
     #outfitText p { margin: 0; } 
     
-    /* --- ИЗМЕНЕНИЕ: CSS для WEB-рекламы (из index.html) --- */
     .ad-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:50}
     .ad-box{width:min(420px,92vw);min-height:280px;background:#111;border-radius:16px;padding:12px;position:relative}
     .ad-close{position:absolute;top:12px;right:16px;background:#222;border:0;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
-    /* --- КОНЕЦ ИЗМЕНЕНИЯ --- */
   </style>
 
   <script>
@@ -58,7 +56,7 @@
       t.parentNode.insertBefore(s,t);
     })(window,document,"yandexContextAsyncCallbacks");
   </script>
-  </head>
+</head>
 
 <body class="min-h-screen">
   <div class="gradient-bg fixed top-0 left-0 right-0 h-[220px]"></div>
@@ -83,7 +81,9 @@
       <div class="flex items-end justify-between mb-2"> <div class="cal-year" id="yearLabel"></div> </div>
       <div class="flex items-center justify-between mb-2"> <h2 class="cal-month text-3xl font-semibold" id="monthLabel"></h2> <div class="text-white/80 text-sm" id="todayLabel"></div> </div>
       <div class="grid7 text-xs mb-2"> <div class="wd text-center">ПН</div><div class="wd text-center">ВТ</div><div class="wd text-center">СР</div> <div class="wd text-center">ЧТ</div><div class="wd text-center">ПТ</div><div class="wd text-center">СБ</div><div class="wd text-center">ВС</div> </div>
+      
       <div id="calGrid" class="grid7"></div>
+      
       <p class="text-xs text-white/70 mt-3">Активен только <b>сегодняшний</b> день. Нажми на сегодняшний день чтобы пройти check-in ✓.</p>
     </section>
 
@@ -113,18 +113,13 @@
   </div>
 
   <script>
-    // ===== cookies (подсказка, если не авторизован)
+    // ===== auth cookies (без изменений)
     function getCookie(name){ return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1]; }
     const vkToken = getCookie('vk_id_token'); const vkUserId = getCookie('vk_user_id');
     if (!vkToken || !vkUserId) { const hint = document.getElementById('auth-hint'); hint.classList.remove('hidden'); hint.textContent='Войдите через приложение ОСО.'; }
 
-    // ===== даты (без изменений)
-    const tz='Europe/Zurich';
-    const fmtMonth=(d)=>new Intl.DateTimeFormat('ru-RU',{timeZone:tz,month:'long'}).format(d).toUpperCase();
-    const fmtYear =(d)=>new Intl.DateTimeFormat('ru-RU',{timeZone:tz,year:'numeric'}).format(d);
-    const fmtToday=(d)=>new Intl.DateTimeFormat('ru-RU',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
-    const ymd     =(d)=>new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
-    const now=new Date(); const todayYMD=ymd(now);
+    // ===== dates (*** ИЗМЕНЕНИЕ: Убрали всю логику отсюда ***)
+    let todayYMD = null; // Эту "правдивую" дату мы получим с сервера
 
     // ===== UI state (без изменений)
     const MOODS=['радостное','грустное','тревожное','раздражительное','виноватое','расслабленное','возбужденное','скучное','творческое'];
@@ -132,35 +127,91 @@
     MOODS.forEach(m=>{ const b=document.createElement('button'); b.className='chip'; b.textContent=m.charAt(0).toUpperCase()+m.slice(1);
       b.onclick=()=>{[...moodsWrap.children].forEach(c=>c.classList.remove('active')); b.classList.add('active'); pickedMood=m; maybeEnableGen();}; moodsWrap.appendChild(b); });
     document.querySelectorAll('#genders .chip').forEach(btn=>{ btn.onclick=()=>{document.querySelectorAll('#genders .chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active'); pickedGender=btn.dataset.gender; maybeEnableGen();}; });
-    function maybeEnableGen(){ const g=document.getElementById('genBtn'); if(pickedMood&&pickedGender&&pickedDate===todayYMD){ g.disabled=false; g.classList.remove('disabled','opacity-50'); } else { g.disabled=true; g.classList.add('disabled','opacity-50'); } }
 
-    // ===== серверные отметки (без изменений)
+    function maybeEnableGen(){ 
+      const g=document.getElementById('genBtn'); 
+      // Проверяем по 'todayYMD' с сервера
+      if(pickedMood&&pickedGender&&pickedDate===todayYMD){ 
+        g.disabled=false; g.classList.remove('disabled','opacity-50'); 
+      } else { 
+        g.disabled=true; g.classList.add('disabled','opacity-50'); 
+      } 
+    }
+
+    // ===== DB completed (без изменений)
     let completed={};
     async function fetchCompleted(year,month){ try{ const r=await fetch(`/api/calendar-get?year=${year}&month=${month}`,{credentials:'include'}); if(r.ok){(await r.json()).entries.forEach(e=>completed[e.date]=e.confirmed);} }catch(e){} }
 
-    // ===== рендер сетки (без изменений)
-    async function renderCalendar(){
-      const calGrid=document.getElementById('calGrid'); const monthLabel=document.getElementById('monthLabel');
-      const yearLabel=document.getElementById('yearLabel'); const todayLabel=document.getElementById('todayLabel');
-      const local=new Date(new Intl.DateTimeFormat('en-CA',{timeZone:tz}).format(now)+'T00:00:00Z'); const year=local.getUTCFullYear(); const month=local.getUTCMonth();
-      await fetchCompleted(year,month+1);
-      monthLabel.textContent=fmtMonth(now); yearLabel.textContent=fmtYear(now); todayLabel.textContent='Сегодня: '+fmtToday(now);
+    // ===== build grid (*** ИЗМЕНЕНИЕ: Принимает данные с сервера + ФИКС БАГА СЕТКИ ***)
+    function renderCalendar(serverTime){
+      const calGrid=document.getElementById('calGrid'); 
+      const monthLabelEl=document.getElementById('monthLabel');
+      const yearLabelEl=document.getElementById('yearLabel'); 
+      const todayLabelEl=document.getElementById('todayLabel');
+
+      // 1. Берем данные с сервера
+      const { year, month, monthLabel, yearLabel, todayLabel } = serverTime;
+
+      monthLabelEl.textContent = monthLabel;
+      yearLabelEl.textContent = yearLabel;
+      todayLabelEl.textContent = todayLabel;
+
       calGrid.innerHTML='';
-      const first=new Date(Date.UTC(year,month,1)); let weekday=first.getUTCDay(); if(weekday===0)weekday=7;
-      const daysInMonth=new Date(year,month+1,0).getUTCDate(); const daysInPrev=new Date(year,month,0).getUTCDate();
-      for(let i=weekday-2;i>=0;i--){ const num=daysInPrev-i; const ph=document.createElement('button'); ph.className='day other disabled'; ph.disabled=true; ph.innerHTML=`<span class="num">${num}</span>`; calGrid.appendChild(ph); }
-      for(let d=1; d<=daysInMonth; d++){ const date=new Date(Date.UTC(year,month,d)); const dateYMD=ymd(date);
+
+      // 2. *** ФИКС БАГА СЕТКИ ***
+      // (year и month - от сервера, например 2025 и 10 (Ноябрь))
+      const first=new Date(Date.UTC(year,month,1)); 
+      let weekday=first.getUTCDay(); if(weekday===0)weekday=7; // ПН=1, ВС=7
+      
+      const daysInMonth=new Date(Date.UTC(year,month+1,0)).getUTCDate(); // (Ноябрь: 30)
+      const daysInPrev=new Date(Date.UTC(year,month,0)).getUTCDate();   // (Октябрь: 31)
+
+      // 3. *** ФИКС БАГА СЕТКИ *** (Дни "ДО")
+      const lead = weekday - 1; // (Если 1 Ноя = СБ (6), lead = 5)
+      for(let i = 0; i < lead; i++){ 
+        const num = daysInPrev - (lead - 1 - i); // (31 - (4-0) = 27 ... 31 - (4-4) = 31)
+        const ph=document.createElement('button'); 
+        ph.className='day other disabled'; ph.disabled=true; 
+        ph.innerHTML=`<span class="num">${num}</span>`; 
+        calGrid.appendChild(ph); 
+      }
+
+      // 4. Дни текущего месяца (без изменений)
+      for(let d=1; d<=daysInMonth; d++){ 
+        const date=new Date(Date.UTC(year,month,d));
+        // Эта утилита нужна только здесь, так что она локальная
+        const ymd_local = (d_obj) => new Intl.DateTimeFormat('en-CA',{ timeZone:'UTC', year:'numeric', month:'2-digit', day:'2-digit'}).format(d_obj);
+        const dateYMD = ymd_local(date);
+        
         const cell=document.createElement('button'); cell.className='day'; cell.innerHTML=`<span class="num">${d}</span>`;
         let w=date.getUTCDay(); if(w===0)w=7; if(w===7)cell.classList.add('sunday');
-        const isToday=dateYMD===todayYMD;
+        
+        const isToday=(dateYMD===todayYMD); // todayYMD - "правда" с сервера
+        
         if(completed[dateYMD]){ cell.classList.add('done','disabled'); cell.disabled=true; }
         else if(isToday){ cell.classList.add('today'); }
         else { cell.classList.add('disabled'); cell.disabled=true; }
-        if(isToday && !completed[dateYMD]){ cell.addEventListener('click',()=>{ pickedDate=dateYMD; document.getElementById('picker').classList.remove('hidden'); maybeEnableGen(); cell.focus(); }); }
+        
+        if(isToday && !completed[dateYMD]){ 
+          cell.addEventListener('click',()=>{ 
+            pickedDate=dateYMD; 
+            document.getElementById('picker').classList.remove('hidden'); 
+            maybeEnableGen(); 
+            cell.focus(); 
+          }); 
+        }
         calGrid.appendChild(cell);
       }
-      const cellsNow=calGrid.children.length; const tail=(Math.ceil(cellsNow/7)*7===cellsNow)?0:(Math.ceil(cellsNow/7)*7-cellsNow);
-      const need=(cellsNow+tail<42)?42-cellsNow:tail; for(let i=1;i<=need;i++){ const ph=document.createElement('button'); ph.className='day other disabled'; ph.disabled=true; ph.innerHTML=`<span class="num">${i}</span>`; calGrid.appendChild(ph); }
+      
+      // 5. *** ФИКС БАГА СЕТКИ *** (Дни "ПОСЛЕ")
+      const cellsNow=calGrid.children.length;
+      const nextNeeded = 42 - cellsNow; // (Просто добиваем до 42)
+      for(let i=1;i<=nextNeeded;i++){ 
+        const ph=document.createElement('button'); 
+        ph.className='day other disabled'; ph.disabled=true; 
+        ph.innerHTML=`<span class="num">${i}</span>`; 
+        calGrid.appendChild(ph); 
+      }
     }
 
     // ===== DOM-элементы (без изменений)
@@ -170,18 +221,10 @@
     const previewImgBox=document.getElementById('previewImgBox'); const previewImg=document.getElementById('previewImg');
 
 
-    // --- ИЗМЕНЕНИЕ: Логика вынесена в отдельные функции ---
-
-    /**
-     * Эта функция вызывается ПОСЛЕ рекламы (нативной или веб)
-     * для генерации ОБРАЗА
-     */
+    // ===== Реклама / Генерация (Логика без изменений) =====
+    
     async function runGenerateOutfit() {
-      // Показываем WEB-рекламу (только если мы в браузере)
-      // В WebView эта функция просто вызовет onDone()
       showInterstitialAd(async () => {
-        // Этот код выполнится ПОСЛЕ закрытия web-рекламы
-        // (или сразу, если мы в WebView)
         genBtn.disabled = true; genBtn.textContent = 'Подбираю...';
         lockNote.classList.add('hidden'); lockNote.textContent = '';
         try {
@@ -193,7 +236,7 @@
           if (!r.ok) throw new Error(data.error || 'Ошибка генерации');
           
           generatedOutfit = data.outfit;
-          outfitTextEl.innerHTML = marked.parse(generatedOutfit); // (используем marked, как и раньше)
+          outfitTextEl.innerHTML = marked.parse(generatedOutfit);
           
           resultCard.classList.remove('hidden'); resultCard.scrollIntoView({ behavior: 'smooth' });
           previewWrap.classList.remove('hidden');   
@@ -206,12 +249,7 @@
       });
     }
 
-    /**
-     * Эта функция вызывается ПОСЛЕ рекламы (нативной или веб)
-     * для генерации КАРТИНКИ
-     */
     async function runGenerateImage() {
-      // Показываем WEB-рекламу (только если мы в браузере)
       showInterstitialAd(async () => {
         previewBtn.disabled = true; previewBtn.textContent = 'Рисую пример...';
         try {
@@ -228,31 +266,22 @@
       });
     }
 
-    // --- ИЗМЕНЕНИЕ: Новые слушатели кнопок (теперь они ТРИГГЕРЫ) ---
-
     genBtn.addEventListener('click', () => {
       if (isWebView()) {
-        // В WebView: переходим по URL, чтобы MainActivity показала НАТИВНУЮ рекламу
         window.location.href = '/trigger-gen-outfit';
       } else {
-        // В браузере: сразу вызываем функцию (которая сама покажет WEB-рекламу)
         runGenerateOutfit();
       }
     });
 
     previewBtn?.addEventListener('click', () => {
       if (isWebView()) {
-        // В WebView: переходим по URL для НАТИВНОЙ рекламы
         window.location.href = '/trigger-gen-image';
       } else {
-        // В браузере: сразу вызываем функцию (которая сама покажет WEB-рекламу)
         runGenerateImage();
       }
     });
     
-    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
-
     // ===== Кнопка "Окей" (без изменений) =====
     confirmBtn.addEventListener('click', async ()=>{
       confirmBtn.disabled=true; confirmBtn.textContent='Сохраняю...';
@@ -266,9 +295,9 @@
     });
     
     
-    // --- ИЗМЕНЕНИЕ: Добавлены JS-функции для WEB-рекламы (из index.html) ---
+    // ===== JS-функции для WEB-рекламы (без изменений) =====
     
-    // !! ВАЖНО: Укажи здесь ID РТБ-блока для WEB-версии (interstitial)
+    // Вставь сюда свой ID от Яндекса
     const YANDEX_WEB_BLOCK_ID_CALENDAR = 'R-A-XXXXXXX-2'; // <-- ЗАМЕНИ НА СВОЙ ID БЛОКА
 
     function isWebView(){
@@ -276,13 +305,7 @@
       return /\bwv\b/i.test(ua);
     }
     
-    /**
-     * Показывает WEB-рекламу (для браузера, не WebView)
-     * @param {function} onDone - Функция, которая выполнится ПОСЛЕ закрытия рекламы.
-     */
     function showInterstitialAd(onDone) {
-      // Если ID не указан, или мы в WebView (там нативная реклама),
-      // то просто сразу выполняем действие (onDone)
       if (!YANDEX_WEB_BLOCK_ID_CALENDAR || YANDEX_WEB_BLOCK_ID_CALENDAR.includes('XXXXXX')) { 
         onDone(); 
         return; 
@@ -295,7 +318,6 @@
       const overlay = document.getElementById('ad-overlay');
       const closeBtn = document.getElementById('ad-close');
       if (!overlay || !closeBtn) { 
-        console.warn('Ad overlay HTML not found');
         onDone(); 
         return; 
       }
@@ -305,7 +327,7 @@
         if (adClosed) return;
         adClosed = true;
         overlay.style.display = 'none';
-        document.getElementById('ya-rtb-interstitial-calendar').innerHTML = ''; // Чистим
+        document.getElementById('ya-rtb-interstitial-calendar').innerHTML = '';
         onDone(); 
       };
       
@@ -318,17 +340,43 @@
           Ya.Context.AdvManager.render({
             blockId: YANDEX_WEB_BLOCK_ID_CALENDAR,
             renderTo: 'ya-rtb-interstitial-calendar',
-            onClose: closeAd // Вызываем наш обработчик при закрытии
+            onClose: closeAd
           });
         } catch(e) { 
           console.warn('Yandex Ads error', e);
-          closeAd(); // Если рендер упал, все равно продолжаем
+          closeAd();
         }
       });
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
-    renderCalendar();
+    // --- ИЗМЕНЕНИЕ: Функция ИНИЦИАЛИЗАЦИИ, которая запускает всё ---
+    async function initializeCalendar() {
+      try {
+        // 1. Получаем "правдивое" время с сервера
+        const response = await fetch('/api/get-time');
+        if (!response.ok) throw new Error('Не удалось получить время с сервера');
+        const serverTime = await response.json();
+        
+        // 2. Устанавливаем ГЛОБАЛЬНУЮ 'todayYMD'. Теперь это "правда".
+        todayYMD = serverTime.todayYMD; 
+
+        // 3. Загружаем "галочки" для этого месяца
+        // (API calendar-get.js ждет месяц 1-12, а сервер отдает 0-11)
+        await fetchCompleted(serverTime.year, serverTime.month + 1); 
+
+        // 4. Только теперь, когда есть все данные, рисуем календарь
+        renderCalendar(serverTime);
+        
+      } catch (e) {
+        console.error(e);
+        // Показываем ошибку в календаре
+        document.getElementById('calGrid').innerHTML = `<p class="text-red-400 p-4 col-span-7">Ошибка загрузки: ${e.message}</p>`;
+      }
+    }
+
+    // --- ЗАПУСК ---
+    initializeCalendar();
+    
   </script>
 </body>
 </html>
