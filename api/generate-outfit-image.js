@@ -1,4 +1,3 @@
-// /api/generate-outfit-image.js
 import { sql } from "@vercel/postgres";
 
 export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
@@ -6,11 +5,9 @@ export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 const DEZGO_KEY  = process.env.DEZGO_API_KEY;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-// === используем ту же модель и тот же формат вызова, что и в твоём generate-outfit.js ===
 const API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
 
-// ---------------- utils ----------------
 function parseCookies(req){
   const h = req.headers.cookie || "";
   return Object.fromEntries(
@@ -34,7 +31,6 @@ function simpleGenderToEn(rusGenderText=""){
   return "male";
 }
 
-// ---------------- Gemini (та же модель) ----------------
 function systemInstruction() {
   return `You are a translator-normalizer for AI image prompts.
 
@@ -76,7 +72,6 @@ async function callGeminiJSON(userText){
   const j = await r.json();
   const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text || "";
   if (!raw) throw new Error("Gemini: пустой ответ");
-  // Пытаемся распарсить JSON. Если модель прислала текст с подсветкой — выщипываем {...}
   try {
     return JSON.parse(raw);
   } catch {
@@ -102,7 +97,6 @@ outfit_ru_raw: ${String(outfitRu||"").trim()}`;
 
     return { gender_en, outfit_en, outfit_ru };
   }catch(e){
-    // надёжный фоллбек без Gemini (на всякий случай)
     return {
       gender_en: simpleGenderToEn(genderRu),
       outfit_ru: String(outfitRu||"").trim().toLowerCase(),
@@ -112,7 +106,6 @@ outfit_ru_raw: ${String(outfitRu||"").trim()}`;
   }
 }
 
-// ---------------- Dezgo prompt ----------------
 function buildPrompt({ outfit_en, gender_en, alsoRu }){
   const style  = "pixel art, crisp sprite, full figure, simple studio background, no text, clean palette.";
   const gender = gender_en === "female" ? "female" : "male";
@@ -120,7 +113,6 @@ function buildPrompt({ outfit_en, gender_en, alsoRu }){
   return `full-body ${gender} character wearing ${outfit_en}. ${style}${ruNote}`;
 }
 
-// ---------------- handler ----------------
 export default async function handler(req,res){
   try{
     if (req.method !== "POST") return res.status(405).json({ error:"Method Not Allowed" });
@@ -137,34 +129,27 @@ export default async function handler(req,res){
     const today = ymdZurich();
     if (date !== today) return res.status(400).json({ error:`Картинка доступна только на сегодня: ${today}` });
 
-    // *** ИЗМЕНЕНИЕ 1: ПРОВЕРКА ***
-    // кэш (проверка лимита на сегодня)
     const cached = await sql`
       SELECT 1 FROM user_calendar
        WHERE vk_user_id=${vkUserId} AND date=${today} AND image_generated = TRUE
        LIMIT 1
     `;
-    // Если нашли запись, где флаг УЖЕ TRUE, — сразу отбой. Картинку не храним.
     if (cached.rows.length > 0){
       return res.status(409).json({ error: "Лимит на сегодня исчерпан, генерация уже была." });
     }
 
 
-    // гарантируем строку дня (если кэша не было)
-    // (ВАЖНО: здесь мы НЕ ставим image_generated=TRUE, это произойдет только ПОСЛЕ успешной генерации)
     await sql`
       INSERT INTO user_calendar (vk_user_id,date,mood,gender,outfit,confirmed,locked_until,image_generated)
       VALUES (${vkUserId}, ${today}, ${"—"}, ${gender}, ${outfit}, FALSE, NULL, FALSE)
       ON CONFLICT (vk_user_id,date) DO NOTHING
     `;
 
-    // перевод+нормализация (модель как в твоём коде)
     const norm = await translateWithGemini({
       genderRu: gender,
       outfitRu: outfit
     });
 
-    // сборка промпта и вызов Dezgo
     const prompt = buildPrompt({
       outfit_en: norm.outfit_en,
       gender_en: norm.gender_en,
@@ -190,15 +175,12 @@ export default async function handler(req,res){
     const b64 = Buffer.from(buffer).toString("base64");
     if (!b64) return res.status(500).json({ error:"Dezgo FLUX: не удалось конвертировать PNG в b64" });
 
-    // *** ИЗМЕНЕНИЕ 2: СОХРАНЕНИЕ ***
-    // Сохраняем ТОЛЬКО флаг, что генерация была. Сама картинка b64 не сохраняется в БД.
     await sql`
       UPDATE user_calendar
       SET image_generated=TRUE
       WHERE vk_user_id=${vkUserId} AND date=${today}
     `;
 
-    // Отправляем картинку пользователю
     return res.status(200).json({
       image_base64: b64,
       meta: {
