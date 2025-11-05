@@ -30,18 +30,16 @@
     .day.other .num{ color:#ffffffc0; }
     .day:hover{ transform: translateY(-1px); box-shadow: 0 8px 24px rgba(22, 163, 74, .15); }
     .day.disabled{ opacity:.35; pointer-events:none; }
-    .day.sunday .num{ color:#ff7a7a; }
+    .day.sunday .num{ color:#ff7a7a; } /* <-- Вот этот красный возьмем */
     .day.today{ background:linear-gradient(180deg, rgba(76,175,115,.25), rgba(35,94,62,.2));
       border-color: rgba(76,175,115,.45);
       box-shadow: 0 8px 26px rgba(35, 94, 62, .35), inset 0 1px 0 rgba(255,255,255,.1); }
     .day.today::after{ content:""; position:absolute; inset:-2px; border-radius:14px;
       box-shadow: 0 0 0 2px rgba(76,175,115,.45) inset; pointer-events:none; }
     
+    /* --- 🔥 ИЗМЕНЕНИЕ: ГАЛКА СТАЛА КРАСНОЙ 🔥 --- */
     
     .day.done { opacity: .6; } 
-    
-    /* (Цифру .num больше НЕ прячем, она остается видна) */
-    /* .day.done .num { display: none; } */ 
     
     .day.done::before{ 
       content:"✓"; 
@@ -51,13 +49,14 @@
       align-items: center;
       justify-content: center;
       
-      font-size: 2.5rem; /* <-- СДЕЛАЛ БОЛЬШОЙ */
+      font-size: 2.5rem; 
       font-weight: 800;
-      color: #b6e7c9; 
+      color: #ff7a7a; /* <-- БЫЛО #b6e7c9 (зеленый), СТАЛО #ff7a7a (красный) */
       text-shadow:0 2px 3px rgba(0,0,0,.5); 
-      opacity: 1; /* Галка всегда яркая */
-      z-index: 10; /* Галка всегда сверху */
+      opacity: 1; 
+      z-index: 10; 
     }
+    /* --- 🔥 КОНЕЦ ИЗМЕНЕНИЯ 🔥 --- */
 
     .chip{padding:.5rem .75rem;border-radius:999px;background:#1f2937;cursor:pointer}
     .chip.active{background:linear-gradient(135deg,#7c3aed 0%,#2563eb 100%)}
@@ -135,12 +134,15 @@
   </div>
 
   <script>
+    // ===== auth cookies
     function getCookie(name){ return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1]; }
     const vkToken = getCookie('vk_id_token'); const vkUserId = getCookie('vk_user_id');
     if (!vkToken || !vkUserId) { const hint = document.getElementById('auth-hint'); hint.classList.remove('hidden'); hint.textContent='Войдите через приложение ОСО.'; }
 
+    // ===== dates
     let todayYMD = null; 
 
+    // ===== UI state
     const MOODS=['радостное','грустное','тревожное','раздражительное','виноватое','расслабленное','возбужденное','скучное','творческое'];
     const moodsWrap=document.getElementById('moods'); let pickedMood=null, pickedGender=null, pickedDate=null, generatedOutfit=null;
     MOODS.forEach(m=>{ const b=document.createElement('button'); b.className='chip'; b.textContent=m.charAt(0).toUpperCase()+m.slice(1);
@@ -156,9 +158,11 @@
       } 
     }
 
+    // ===== DB completed
     let completed={};
     async function fetchCompleted(year,month){ try{ const r=await fetch(`/api/calendar-get?year=${year}&month=${month}`,{credentials:'include'}); if(r.ok){(await r.json()).entries.forEach(e=>completed[e.date]=e.confirmed);} }catch(e){} }
 
+    // ===== build grid
     function renderCalendar(serverTime){
       const calGrid=document.getElementById('calGrid'); 
       const monthLabelEl=document.getElementById('monthLabel');
@@ -222,12 +226,14 @@
       }
     }
 
+    // ===== DOM-элементы
     const genBtn=document.getElementById('genBtn'); const resultCard=document.getElementById('resultCard'); const outfitTextEl=document.getElementById('outfitText');
     const confirmBtn=document.getElementById('confirmBtn'); const lockNote=document.getElementById('lockNote');
     const previewWrap=document.getElementById('previewWrap'); const previewBtn=document.getElementById('previewBtn');
     const previewImgBox=document.getElementById('previewImgBox'); const previewImg=document.getElementById('previewImg');
 
 
+    // ===== Реклама / Генерация
     
     async function runGenerateOutfit() {
       showInterstitialAd(async () => {
@@ -288,6 +294,7 @@
       }
     });
     
+    // ===== Кнопка "Check in"
     confirmBtn.addEventListener('click', async ()=>{
       confirmBtn.disabled=true; confirmBtn.textContent='Сохраняю...';
       try{
@@ -303,6 +310,7 @@
     });
     
     
+    // ===== JS-функции для WEB-рекламы
     
     const YANDEX_WEB_BLOCK_ID_CALENDAR = 'R-A-XXXXXXX-2'; // <-- ЗАМЕНИ НА СВОЙ ID БЛОКА
 
@@ -355,6 +363,7 @@
       });
     }
 
+    // --- ИНИЦИАЛИЗАЦИЯ
     async function initializeCalendar() {
       try {
         const response = await fetch('/api/get-time');
