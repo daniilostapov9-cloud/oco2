@@ -1,7 +1,6 @@
 // /api/get-time.js
-export const config = { runtime: 'nodejs' }; // <-- ВОТ ЭТА СТРОКА
+export const config = { runtime: 'nodejs' }; 
 
-// --- Утилиты времени (СЕРВЕРНЫЕ) ---
 const tz = 'Europe/Zurich';
 const fmtMonth = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, month:'long'}).format(d).toUpperCase();
 const fmtYear = (d) => new Intl.DateTimeFormat('ru-RU',{ timeZone:tz, year:'numeric'}).format(d);
@@ -10,13 +9,10 @@ const ymd = (d) => new Intl.DateTimeFormat('en-CA',{ timeZone:tz, year:'numeric'
 
 export default async function handler(req, res) {
   try {
-    // Эта 'now' - время СЕРВЕРА Vercel, а не клиента
     const now = new Date(); 
     
-    // Получаем "сегодня" в Цюрихе
     const todayYMD = ymd(now);
     
-    // Получаем текущие год и месяц (JS-индекс 0-11) в Цюрихе
     const local = new Date(new Intl.DateTimeFormat('en-CA',{timeZone:tz}).format(now)+'T00:00:00Z');
     const year = local.getUTCFullYear();
     const month = local.getUTCMonth(); // 0..11
