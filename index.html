@@ -19,7 +19,8 @@
 
         .app-container { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 40px; }
 
-        .app-header { padding: 20px 20px 30px; }
+        /* (CSS не менялся) */
+        .app-header { padding: 20px 20px 30px; } 
 
         .upload-card { background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
             border-radius: 24px; padding: 40px 24px; text-align: center; box-shadow: 0 10px 40px rgba(124,58,237,.3);
@@ -89,19 +90,19 @@
     <div class="app-container">
         <div class="status-bar-spacer"></div>
 
-        <header class="app-header">
-            <h1 class="text-3xl font-bold mb-2">ОСО</h1>
-            <p class="text-white/60 text-sm">Оцени свою одежду</p>
+        <header class="app-header flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold mb-2">ОСО</h1>
+                <p class="text-white/60 text-sm">Оцени свою одежду</p>
+            </div>
 
-<a href="/calendar.html"
-     class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-            bg-gradient-to-r from-violet-600 to-blue-600 shadow-[0_4px_20px_rgba(124,58,237,.4)]
-            hover:opacity-95 active:scale-[.98] transition
-            absolute right-4 top-4">
-    ✨ Модный Календарь
-  </a>
+            <a href="/calendar.html"
+                 class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-center flex-shrink-0
+                        bg-gradient-to-r from-violet-600 to-blue-600 shadow-[0_4px_20px_rgba(124,58,237,.4)]
+                        hover:opacity-95 active:scale-[.98] transition">
+                ✨ Модный<br>Календарь
+            </a>
         </header>
-
         <main class="px-5">
 
             <div id="auth-bar" class="hint mb-4 hidden"></div>
@@ -197,6 +198,7 @@
     </div>
 
     <script>
+        // (Весь JS остается без изменений)
         const imageUpload = document.getElementById('image-upload');
         const hintSection = document.getElementById('hint-section');
         const uploadSection = document.getElementById('upload-section');
@@ -259,7 +261,6 @@
         }
         setAuthUI();
 
-        // ===== WebView детект и WEB-реклама =====
         function isWebView(){
           const ua = navigator.userAgent || '';
           return /\bwv\b/i.test(ua);
@@ -326,7 +327,6 @@
             }
         });
         
-        // ===== Анализ =====
         async function runAnalysisFromNative() {
             const base64Data = window.pendingBase64Data; 
             if (!base64Data) {
@@ -360,7 +360,6 @@
             }
         }
 
-        // ===== Новое фото =====
         btnNewPhoto?.addEventListener('click', resetToInitial);
 
         function showPreview(file) {
@@ -371,8 +370,6 @@
                 uploadSection.classList.add('hidden');
                 hintSection.classList.add('hidden');
                 previewSection.classList.remove('hidden');
-
-                // --- FIX: убираем левый «смайлик» под фото (если вёрстка/вебвью подкинула одиночный emoji-блок)
                 removeStrayEmojiAfter(previewSection);
             };
             reader.readAsDataURL(file);
@@ -420,7 +417,6 @@
           }
         }
 
-        // ===== Рендер результатов =====
         function displayResults(text) {
             const cleanedText = text.replace(/\*\*/g, '');
             let outfit = "Не удалось распознать.";
@@ -510,3 +506,5 @@
     </script>
 </body>
 </html>
+
+}
